@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#141a3a">
+<title>What If Snacks: Drive</title>
+<meta name="description" content="A daily what-if driving run. Original game. Not affiliated with Rockstar Games or Take-Two.">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/"}}</script>
+<style>
+:root{--sa-top:env(safe-area-inset-top,0px);--sa-bottom:env(safe-area-inset-bottom,0px);--sa-left:env(safe-area-inset-left,0px);--sa-right:env(safe-area-inset-right,0px);--navy:#141a3a;--navy2:#1f2756;--sun:#ffd84d;--coral:#ff6b57;--amber:#ffb347;--cream:#fff4e6;--f:"Montserrat","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--f);color:var(--cream);user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(20,10,30,.55) 100%);display:none}
+.low #vignette{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .4s}
+#hud.on{opacity:1}
+.panel{background:rgba(20,26,58,.82);border-radius:10px;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+#topcol{position:absolute;left:max(10px,var(--sa-left));right:max(10px,var(--sa-right));top:max(10px,var(--sa-top));display:flex;flex-direction:column;gap:8px}
+#top{display:flex;gap:10px;align-items:flex-start;transform:translateY(-160%);transition:transform .5s cubic-bezier(.2,1.4,.4,1)}
+#hud.on #top{transform:none}
+#mission{flex:1;min-width:0;padding:8px 12px;font-weight:900;font-size:clamp(11px,3.1vw,16px);letter-spacing:.02em;line-height:1.2;text-transform:uppercase}
+#mission small{display:block;color:var(--sun);font-size:max(10px,.72em);letter-spacing:.12em;margin-bottom:2px}
+#right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#timer{padding:6px 12px;font-weight:900;font-size:clamp(18px,5vw,28px);font-variant-numeric:tabular-nums;min-width:4.2em;text-align:center}
+#timer.off{color:#9aa0c8}
+#timer.low{color:var(--coral);animation:pulse .5s infinite alternate}
+#pips{display:flex;gap:3px;padding:5px 8px}
+#pips svg{width:clamp(16px,4.4vw,22px);height:auto}
+#pips .pip .f{fill:rgba(255,255,255,.12);stroke:rgba(255,255,255,.45)}
+#pips .pip .s{fill:rgba(255,255,255,.35)}
+#pips .pip.on .f{fill:var(--amber);stroke:#fff}
+#pips .pip.on .s{fill:var(--navy)}
+#pips .pip.pop{animation:pop .5s}
+#barwrap{align-self:center;transform:translateY(-400%);width:min(78vw,440px);transition:transform .5s .1s cubic-bezier(.2,1.4,.4,1);padding:7px 10px 9px}
+#hud.on #barwrap{transform:none}
+#barlabel{display:flex;justify-content:space-between;font-weight:900;font-size:clamp(11px,3vw,14px);letter-spacing:.1em;margin-bottom:5px}
+#barlabel b{color:var(--sun);font-size:1.25em;letter-spacing:0}
+#bar{height:12px;border-radius:6px;background:rgba(255,255,255,.14);overflow:hidden}
+#fill{height:100%;width:90%;border-radius:6px;background:linear-gradient(90deg,var(--amber),var(--sun));transition:width .35s cubic-bezier(.2,1.6,.4,1)}
+#barwrap.pulse #fill{animation:pulse .6s infinite alternate}
+#barwrap.gain{animation:gain .45s}
+@keyframes gain{0%{transform:scale(1)}35%{transform:scale(1.06);box-shadow:0 0 0 3px var(--sun),0 0 30px rgba(255,216,77,.6)}100%{transform:scale(1)}}
+#key.turn{animation:turn .5s forwards}
+@keyframes turn{0%{transform:scale(1)}30%{transform:scale(.92) rotate(-3deg)}100%{transform:scale(1.15);opacity:0}}
+#flash{position:fixed;inset:0;background:#fff4e6;opacity:0;pointer-events:none;transition:opacity .5s}
+#flash.on{opacity:.55;transition:none}
+html,body{max-width:100vw}
+#radio{align-self:flex-start;display:flex;gap:8px;align-items:center;max-width:min(86vw,460px);padding:6px 12px 6px 6px;transform:translateX(-120%);transition:transform .35s}
+#radio.on{transform:none}
+#radio canvas{width:46px;height:46px;border-radius:50%;flex:none;background:var(--navy2)}
+#radio .who{font-size:10px;font-weight:900;letter-spacing:.14em;color:var(--sun)}
+#radio .say{font-weight:800;font-size:clamp(13px,3.6vw,16px);line-height:1.25}
+#radar{position:absolute;left:max(12px,var(--sa-left));bottom:max(12px,var(--sa-bottom));width:clamp(110px,30vw,170px);height:clamp(110px,30vw,170px);transform:translateX(-160%);transition:transform .5s .15s cubic-bezier(.2,1.4,.4,1)}
+#hud.on #radar{transform:none}
+#speed{position:absolute;right:max(14px,var(--sa-right));bottom:calc(max(12px,var(--sa-bottom)) + 150px);font-weight:900;font-size:clamp(26px,7vw,40px);text-align:right;line-height:.9;text-shadow:0 2px 0 rgba(0,0,0,.4);font-variant-numeric:tabular-nums}
+#speed small{display:block;font-size:max(10px,.35em);letter-spacing:.2em;color:var(--sun)}
+.notouch #speed{bottom:max(14px,var(--sa-bottom))}
+#toast{position:absolute;left:50%;top:28%;transform:translate(-50%,-50%) scale(.6);opacity:0;font-weight:900;font-size:clamp(26px,8vw,54px);text-align:center;letter-spacing:.02em;color:var(--cream);text-shadow:0 3px 0 var(--navy),0 0 24px rgba(255,140,60,.6);transition:all .25s;white-space:nowrap}
+#toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#toast small{display:block;font-size:.38em;color:var(--sun);letter-spacing:.14em}
+.plus{position:absolute;left:70%;top:46%;font-weight:900;font-size:clamp(28px,8vw,46px);color:var(--sun);text-shadow:0 3px 0 var(--navy);animation:rise 1s forwards;pointer-events:none}
+#hint{position:absolute;left:28%;bottom:22%;transform:translateX(-50%);text-align:center;font-weight:900;font-size:14px;letter-spacing:.1em;opacity:0;transition:opacity .3s}
+#hint.on{opacity:1}
+#hint .thumb{width:54px;height:54px;margin:0 auto 6px;border-radius:50%;border:3px solid var(--cream);background:rgba(255,255,255,.18);animation:swipe 1.2s ease-in-out infinite}
+/* touch controls */
+#controls{position:fixed;inset:0;pointer-events:none;display:none}
+.touch #controls{display:block}
+#steerzone{position:absolute;left:0;bottom:0;width:62%;height:62%;pointer-events:auto}
+#stick{position:fixed;width:120px;height:56px;margin:-28px 0 0 -60px;border-radius:28px;border:2px solid rgba(255,255,255,.35);background:rgba(20,26,58,.35);opacity:0;transition:opacity .15s;pointer-events:none}
+#stick.on{opacity:1}
+#knob{position:absolute;left:38px;top:4px;width:44px;height:44px;border-radius:50%;background:rgba(255,244,230,.9)}
+.tbtn{position:absolute;pointer-events:auto;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:12px;letter-spacing:.08em;color:var(--navy);box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.tbtn.down{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+#btnBrake{right:max(16px,var(--sa-right));bottom:max(18px,var(--sa-bottom));width:84px;height:84px;background:var(--cream)}
+#btnDrift{right:calc(max(16px,var(--sa-right)) + 92px);bottom:calc(max(18px,var(--sa-bottom)) + 24px);width:66px;height:66px;background:var(--sun)}
+#hud:not(.on) ~ #controls{display:none}
+/* overlays */
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:max(16px,var(--sa-top)) 16px max(16px,var(--sa-bottom));text-align:center;transition:opacity .35s}
+.overlay.hide{opacity:0;pointer-events:none}
+#title{background:linear-gradient(180deg,rgba(20,26,58,.65) 0%,rgba(20,26,58,0) 30%,rgba(20,26,58,0) 55%,rgba(20,26,58,.8) 100%);justify-content:space-between}
+#title .head{margin-top:2vh}
+#title .day{font-weight:900;letter-spacing:.2em;font-size:clamp(12px,3.4vw,15px);color:var(--sun)}
+#title h1{margin:.2em 0 0;font-weight:900;font-size:clamp(30px,9vw,58px);line-height:.95;letter-spacing:-.01em;color:var(--cream);text-shadow:0 4px 0 var(--navy)}
+#title h1 span{color:var(--sun)}
+#title .q{margin-top:.6em;font-weight:800;font-size:clamp(14px,4vw,20px)}
+#key{pointer-events:auto;border:0;cursor:pointer;width:min(72vw,300px);padding:20px 10px;border-radius:999px;background:var(--sun);color:var(--navy);font:900 clamp(20px,6vw,28px)/1 var(--f);letter-spacing:.06em;box-shadow:0 6px 0 #c99a1c,0 10px 30px rgba(255,200,80,.45);animation:breathe 1.4s ease-in-out infinite}
+#key:active{transform:translateY(4px);box-shadow:0 2px 0 #c99a1c}
+#ghostnote{margin-top:12px;font-weight:800;font-size:14px;color:var(--cream);min-height:1em}
+.disc{margin-top:12px;font-size:11px;opacity:.8;font-weight:600}
+#loading{background:var(--navy);justify-content:center;gap:14px}
+#loading .lb{width:min(60vw,260px);height:8px;border-radius:4px;background:rgba(255,255,255,.15);overflow:hidden}
+#loading .lb i{display:block;height:100%;width:5%;background:var(--sun);transition:width .2s}
+#result{background:rgba(20,26,58,.55);justify-content:center}
+#card{width:min(92vw,420px);max-height:94vh;overflow:auto;padding:18px 18px 14px;border-radius:16px;background:var(--navy);box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:left;pointer-events:auto}
+#card .day{font-weight:900;letter-spacing:.18em;font-size:12px;color:var(--sun)}
+#card h2{margin:.15em 0 .5em;font-size:26px;font-weight:900;line-height:1}
+#card .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+#card .stat{background:var(--navy2);border-radius:10px;padding:8px;text-align:center}
+#card .stat b{display:block;font-size:22px;font-weight:900;color:var(--sun)}
+#card .stat span{font-size:10px;letter-spacing:.14em;font-weight:800;opacity:.8}
+#card .fact{background:#fff4e6;color:var(--navy);border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px;line-height:1.35;margin-bottom:10px}
+#card .fact b{display:block;font-size:10px;letter-spacing:.16em;color:var(--coral);margin-bottom:3px}
+#card .code{font:900 18px/1.2 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;background:var(--navy2);border-radius:10px;padding:8px;margin-bottom:10px}
+#card .code small{display:block;font:800 10px var(--f);letter-spacing:.14em;opacity:.75;margin-bottom:2px}
+#card .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#card button,#card a{border:0;border-radius:10px;padding:12px 8px;font:900 13px var(--f);letter-spacing:.05em;cursor:pointer;text-align:center;text-decoration:none}
+.b1{background:var(--sun);color:var(--navy)}.b2{background:var(--cream);color:var(--navy)}.b3{background:var(--coral);color:#fff}.b4{background:var(--navy2);color:var(--cream)}
+#card .wide{grid-column:1/-1}
+#card .disc{text-align:center}
+#card .eggs{text-align:center;font-weight:800;font-size:12px;letter-spacing:.12em;margin:-2px 0 10px;opacity:.9}
+#card .eggs b{color:var(--sun);font-size:15px}
+#copied{color:var(--sun);font-weight:800;font-size:12px;text-align:center;min-height:1.2em;margin:4px 0 6px}
+#card h2{font-size:30px;color:var(--sun);text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#card .hero{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+#card #rmap{width:132px;height:132px;border-radius:12px;flex:none;box-shadow:0 0 0 3px var(--navy2)}
+#card .big{flex:1;text-align:center}
+#card .big b{display:block;font-size:64px;line-height:.9;font-weight:900;color:var(--cream);text-shadow:0 4px 0 var(--coral)}
+#card .big span{font-size:12px;letter-spacing:.2em;font-weight:900;color:var(--sun)}
+#card .rpips{display:flex;justify-content:center;gap:3px;margin-top:8px}
+#card .rpips svg{width:22px}
+#card .rpips .f{fill:rgba(255,255,255,.12);stroke:rgba(255,255,255,.45)}#card .rpips .s{fill:rgba(255,255,255,.35)}
+#card .rpips .on .f{fill:var(--amber);stroke:#fff}#card .rpips .on .s{fill:var(--navy)}
+#card .fact.ghost{background:var(--navy2);color:var(--cream)}#card .fact.ghost b{color:var(--sun)}
+#card .btns+.btns,#card .eggs+.btns{margin-top:8px}
+.plus.hit{color:var(--coral);left:30%;top:54%;font-size:clamp(22px,6vw,34px)}
+.plus.near{color:#7dffc8;left:30%;top:40%;font-size:clamp(22px,6vw,34px)}
+#flash.pk{opacity:.18;background:var(--sun);transition:none}
+.nohud #hud{display:none}
+/* capture mode: clean frames */
+.capture #top,.capture #radio,.capture #radar,.capture #speed,.capture #controls,.capture #hint,.capture .plus{display:none!important}
+.capture.nohud #hud{display:none}
+.capture .overlay{transition:none}
+@keyframes pulse{from{opacity:1}to{opacity:.55}}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6)}100%{transform:scale(1)}}
+@keyframes rise{0%{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.15);opacity:1}100%{transform:translate(-50%,-90px) scale(1);opacity:0}}
+@keyframes swipe{0%,100%{transform:translateX(-34px)}50%{transform:translateX(34px)}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+</style>
+</head><body>
+<canvas id="gl"></canvas>
+<div id="vignette"></div><div id="flash"></div>
+<div id="hud">
+  <div id="topcol"><div id="top">
+    <div id="mission" class="panel"><small id="mlabel">DAILY RUN</small><span id="mtext"></span></div>
+    <div id="right"><div id="timer" class="panel off">1:20</div><div id="pips" class="panel"></div></div>
+  </div>
+  <div id="barwrap" class="panel"><div id="barlabel"><span id="blabel">DOWNLOAD</span><b id="bpct">90%</b></div><div id="bar"><div id="fill"></div></div></div>
+  <div id="radio" class="panel"><canvas id="face" width="92" height="92"></canvas><div><div class="who">RADIO · THE HOODIE</div><div class="say" id="say"></div></div></div></div>
+  <canvas id="radar"></canvas>
+  <div id="speed"><span id="kmh">0</span><small>KM/H</small></div>
+  <div id="toast"></div>
+  <div id="hint"><div class="thumb"></div>DRAG TO STEER</div>
+</div>
+<div id="controls">
+  <div id="steerzone"></div><div id="stick"><div id="knob"></div></div>
+  <div id="btnBrake" class="tbtn">BRAKE</div><div id="btnDrift" class="tbtn">DRIFT</div>
+</div>
+<div id="title" class="overlay hide">
+  <div class="head"><div class="day" id="tday">DAILY RUN #001</div><h1>WHAT IF SNACKS<br><span>DRIVE</span></h1><div class="q" id="tq"></div></div>
+  <div><button id="key">TURN THE KEY</button><div id="ghostnote"></div><div class="disc">Original game. Not affiliated with Rockstar Games or Take-Two.</div></div>
+</div>
+<div id="result" class="overlay hide"><div id="card"></div></div>
+<div id="loading" class="overlay"><div style="font-weight:900;letter-spacing:.2em;font-size:13px;color:var(--sun)">WHAT IF SNACKS: DRIVE</div><div class="lb"><i id="lbar"></i></div><div class="disc">Original game. Not affiliated with Rockstar Games or Take-Two.</div></div>
+<script type="module">
+// three.js needs WebGL2: check first and say so kindly (old in-app browsers, blocked GPUs) instead of crashing
+const ok = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+if (ok) import('./js/main.js');
+else { document.getElementById('loading').innerHTML = '<div style="padding:24px;max-width:340px;line-height:1.4;font-weight:800">This browser cannot run the 3D city (it has no WebGL2).<br><br>Open the link in Chrome or Safari and try again.</div><div class="disc">Original game. Not affiliated with Rockstar Games or Take-Two.</div>'; window.__oc = { ready: true, noWebGL2: true, bootMs: 0 }; }
+</script>
+</body></html>
