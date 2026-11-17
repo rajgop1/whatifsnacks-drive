@@ -82,8 +82,11 @@ export class Car {
     const s2 = Math.sin(this.yaw), c2 = Math.cos(this.yaw);
     this.x += this.vx * dt; this.z += this.vz * dt;
     // vertical: gravity, ground, tornado lift
-    this.vy -= env.g * dt; this.vy += this.lift * dt; this.y += this.vy * dt;
+    // a flight is capped: after 3 s aloft gravity ramps up (the tornado ride on the moon event gave 30 s and 220 m with no steering)
+    const extraG = this.air ? Math.min(60, Math.max(0, this.airT - 3) * 16) : 0;
+    this.vy -= (env.g + extraG) * dt; this.vy += this.lift * dt; this.y += this.vy * dt;
     const gy = L.groundY(this.x, this.z);
+    if (this.y > gy + 50) { this.y = gy + 50; this.vy = Math.min(this.vy, 0); }   // hard ceiling, 50 m over the ground
     if (this.y <= gy) {
       if (this.air && this.airT > 0.25) { this.impact = Math.max(this.impact, Math.abs(this.vy) * 0.6); this.bobV -= Math.abs(this.vy) * 0.25; if (fx) fx.burst(this.x, gy + 0.3, this.z, 14, 5, { life: 0.9, size: 1.6, grow: 2, drag: 3, r: 0.85, g: 0.8, b: 0.78 }, 0.2); }
       this.y = gy; this.vy = Math.max(0, this.vy); this.air = false; this.airT = 0; this.spin = 0;

@@ -22,7 +22,7 @@ import { Clip, Stats } from './clip.js';
 
 const Q = new URLSearchParams(location.search), H = new URLSearchParams(location.hash.slice(1));
 const CAPTURE = Q.has('capture'), MANUAL = Q.has('manual'), AUTO = CAPTURE || Q.has('auto'), NOHUD = Q.get('hud') === '0';
-const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+const isTouch = Q.get('touch') === '1' || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 let tier = Q.get('q') || (isTouch || Math.min(screen.width, screen.height) < 700 ? 'medium' : 'high');
 document.documentElement.classList.add(isTouch ? 'touch' : 'notouch', tier); if (CAPTURE) document.documentElement.classList.add('capture'); if (Q.get('hud') === '0') document.documentElement.classList.add('nohud');
 const DAY = Math.max(1, Math.floor(+H.get('d') || +Q.get('d') || featuredDay())), SCN = scenarioFor(DAY);   // a hand-typed #d=-5 or d=1.5 must still land on a scenario
@@ -101,7 +101,7 @@ function resetRun() {
 }
 function turnKey() {
   if (R.state !== 'title' && R.state !== 'done') return;
-  audio.start(); audio.rev(); hud.hideResult(); resetRun();
+  audio.start(); audio.rev(); hud.hideResult(); resetRun(); input.calibrate();   // wherever the phone is held now is "straight ahead"
   // the key turn: button twist, a warm flash, the engine catches (puffs and a shake), HUD panels slide in with whooshes
   document.getElementById('key').classList.add('turn'); if (!CAPTURE) flash('on');   // no flash in capture: frame 0 must be a clean, lit frame
   setTimeout(() => { hud.hideTitle(); document.getElementById('key').classList.remove('turn'); }, 260);
@@ -352,7 +352,7 @@ document.addEventListener('visibilitychange', () => { hidden = document.hidden; 
 // ---------------------------------------------------------------- test / capture hooks
 window.__oc = {
   ready: false, fps: 0, get tier() { return tier; }, get state() { return R.state; }, get R() { return R; }, get car() { return car; },
-  key: turnKey, retry, get audio() { return audio; }, get heli() { return heli; }, get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
+  key: turnKey, retry, get audio() { return audio; }, get heli() { return heli; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
   advance(dt) { const n = Math.max(1, Math.round(dt * 60)); for (let i = 0; i < n; i++) step(1 / 60); render(dt); return R.state; },
   stats: () => ({ fps, ema, cpuStep: +cpu.step.toFixed(2), cpuRender: +cpu.render.toFixed(2), scale, tier, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, state: R.state, pct: R.pct, pips: R.pips, t: R.t, x: car.x, z: car.z, speed: car.speed }),
 };

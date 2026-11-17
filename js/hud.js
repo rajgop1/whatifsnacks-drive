@@ -47,7 +47,12 @@ export class Hud {
   radio(text, dur = 3.2) { this.sayText = text; this.sayN = 0; $('say').textContent = ''; $('radio').classList.add('on'); this.radioT = dur + text.length / 38; this.talkT = 0; }
   toast(big, small = '', dur = 1.8) { $('toast').innerHTML = `${small ? `<small>${small}</small>` : ''}${big}`; $('toast').classList.add('on'); this.toastT = dur; }
   // rising pop text: kind '' (sun, packets) | 'hit' (coral, crashes) | 'near' (mint, near misses)
-  plus(text, kind = '') { const d = document.createElement('div'); d.className = 'plus ' + kind; d.textContent = text; this.el.appendChild(d); setTimeout(() => d.remove(), 1000); }
+  plus(text, kind = '') {   // labels of one kind stack 44 px apart instead of printing on top of each other; the same label twice within 0.7 s is dropped
+    const k = kind || 'sun', alive = [...this.el.querySelectorAll(`.plus[data-k="${k}"]`)], now = performance.now();
+    if (k !== 'sun' && alive.some((e) => e.textContent === text && now - +e.dataset.t < 700)) return;
+    const d = document.createElement('div'); d.className = 'plus ' + kind; d.dataset.k = k; d.dataset.t = now; d.textContent = text; d.style.marginTop = `${alive.length * 44 * (k === 'near' ? -1 : 1)}px`;
+    this.el.appendChild(d); setTimeout(() => d.remove(), 1000);
+  }
   hint(on) { $('hint').classList.toggle('on', on); }
   speed(kmh) { $('kmh').textContent = kmh; }
   flashRadar() { this.flash = 2.5; }
