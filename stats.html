@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>What If Snacks: Drive stats</title><link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root{--navy:#141a3a;--navy2:#1f2756;--sun:#ffd84d;--coral:#ff6b57;--cream:#fff4e6;--f:"Montserrat","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--navy);color:var(--cream);font-family:var(--f)}
+main{max-width:860px;margin:0 auto;padding:28px 16px 48px}
+h1{margin:0;font-size:clamp(22px,5.5vw,34px);font-weight:900;letter-spacing:-.01em}h1 span{color:var(--sun)}
+.sub{margin:6px 0 22px;font-weight:700;font-size:13px;opacity:.8}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.card{background:var(--navy2);border-radius:16px;padding:16px 14px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.card b{display:block;font-size:clamp(30px,8vw,46px);font-weight:900;color:var(--sun);font-variant-numeric:tabular-nums;line-height:1}
+.card span{display:block;margin-top:8px;font-weight:800;font-size:12px;letter-spacing:.1em}
+.card small{display:block;margin-top:4px;font-size:12px;opacity:.7;font-weight:600}
+h2{margin:28px 0 10px;font-size:14px;letter-spacing:.14em;font-weight:900;color:var(--sun)}
+.bar{display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:800;font-size:13px}.bar i{display:block;height:12px;border-radius:6px;background:var(--coral);min-width:3px}.bar em{font-style:normal;opacity:.85}
+.note{margin-top:28px;font-size:12px;line-height:1.5;opacity:.75}.note a{color:var(--sun)}
+#st{font-weight:700;font-size:12px;opacity:.7;margin-top:14px}
+</style></head><body><main>
+<h1>What If Snacks: <span>Drive</span> stats</h1>
+<div class="sub">Anonymous counts from the live game. Updates every 30 seconds.</div>
+<div class="grid" id="top"></div>
+<h2>WHAT PEOPLE DRIVE</h2><div id="cars"></div>
+<h2>WHAT THEY DO AFTER A RUN</h2><div class="grid" id="after"></div>
+<div id="st">Loading...</div>
+<div class="note">How it counts: every page load is a visit; the first load in a browser is a person; every TURN THE KEY is a play; reaching the end of a run is a finish; 100% is a win. Tests, headless browsers and localhost are not counted.
+To keep your own plays out of the numbers, open <a href="./?nocount=1">the game with ?nocount=1</a> once on each device you use.</div>
+</main>
+<script>
+const NS = 'wisd-q7k2m9', API = 'https://abacus.jasoncameron.dev';
+const TOP = [['visits', 'VISITS', 'page loads'], ['people', 'PEOPLE', 'new browsers'], ['plays', 'PLAYS', 'runs started (TURN THE KEY)'], ['done', 'FINISHED', 'runs that ended'], ['wins', 'WINS', 'reached 100%']];
+const AFTER = [['shares', 'SHARE CARD', 'taps'], ['links', 'CHALLENGE LINK', 'taps'], ['watch', 'WATCH THE SCIENCE', 'taps to the Short'], ['subs', 'SUBSCRIBE', 'taps'], ['clips', 'SAVE CLIP', 'taps'], ['space', 'SPACE RUNS', 'rocket launches']];
+const CARS = [['car-coupe', 'SUN COUPE'], ['car-roadster', 'VOLT ROADSTER'], ['car-rocket', 'STAR HOPPER']];
+const get = async (k) => { try { const r = await fetch(`${API}/get/${NS}/${k}`); const j = await r.json(); return +j.value || 0; } catch (e) { return null; } };
+const fmt = (n) => (n == null ? '?' : n.toLocaleString());
+async function load() {
+  const keys = [...TOP, ...AFTER].map((x) => x[0]).concat(CARS.map((x) => x[0])), vals = {};
+  await Promise.all(keys.map(async (k) => { vals[k] = await get(k); }));
+  const card = ([k, name, hint], extra = '') => `<div class="card"><b>${fmt(vals[k])}</b><span>${name}</span><small>${hint}${extra}</small></div>`;
+  const pct = (a, b) => (b ? ` · ${Math.round(100 * a / b)}% of ${b === vals.visits ? 'visits' : 'plays'}` : '');
+  document.getElementById('top').innerHTML = TOP.map((x) => card(x, x[0] === 'plays' ? pct(vals.plays, vals.visits) : x[0] === 'done' ? pct(vals.done, vals.plays) : x[0] === 'wins' ? pct(vals.wins, vals.done) : '')).join('');
+  document.getElementById('after').innerHTML = AFTER.map((x) => card(x)).join('');
+  const max = Math.max(1, ...CARS.map(([k]) => vals[k] || 0));
+  document.getElementById('cars').innerHTML = CARS.map(([k, n]) => `<div class="bar"><span style="width:130px">${n}</span><i style="width:${Math.round(220 * (vals[k] || 0) / max)}px"></i><em>${fmt(vals[k])}</em></div>`).join('');
+  document.getElementById('st').textContent = 'Updated ' + new Date().toLocaleTimeString() + (Object.values(vals).every((v) => v == null) ? ' · could not reach the counter service' : '');
+}
+load(); setInterval(load, 30000);
+</script></body></html>

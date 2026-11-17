@@ -3,6 +3,7 @@ import * as L from './layout.js';
 import { CONFIG } from './config.js';
 import { pad3 } from './scenarios.js';
 import { fmtTime } from './run.js';
+import { count } from './counter.js';
 
 const $ = (id) => document.getElementById(id);
 // The chaos pip: an original icon (a hexagonal drone puck with a spark), not a star.
@@ -14,6 +15,8 @@ export class Hud {
     $('pips').innerHTML = Array.from({ length: 5 }, () => `<span class="pip">${PIP}</span>`).join('');
     this.pipEls = [...document.querySelectorAll('#pips .pip')]; this.lastPips = 0;
     this.drawFace(); this.buildMap();
+    const top = $('topcol'), fit = () => document.documentElement.style.setProperty('--hudb', Math.round(top.getBoundingClientRect().bottom) + 'px');   // the toast sits below the top panels on short screens
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(top); fit();
   }
   drawFace(mouth = 0, blink = false) { // the hoodie mascot on the radio (mouth 0..1 while talking)
     const g = this.fg || (this.fg = $('face').getContext('2d')), c = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
@@ -54,6 +57,11 @@ export class Hud {
     this.el.appendChild(d); setTimeout(() => d.remove(), 1000);
   }
   hint(on) { $('hint').classList.toggle('on', on); }
+  garage(v) { $('gName').innerHTML = `<b>${v.name}</b><small>${v.tag}</small>`; }
+  boost(e, lock, on) {   // the tank: a ring on the touch button, a bar on desktop
+    const b = $('btnBoost'); b.style.setProperty('--e', e.toFixed(3)); b.classList.toggle('lock', lock); b.classList.toggle('fire', on);
+    $('boostfill').style.width = (e * 100).toFixed(1) + '%'; $('boostbar').classList.toggle('lock', lock); $('boostbar').classList.toggle('fire', on);
+  }
   speed(kmh) { $('kmh').textContent = kmh; }
   flashRadar() { this.flash = 2.5; }
   update(dt) {
@@ -176,10 +184,11 @@ export class Hud {
     this.routeMap($('rmap'), r.route, r.packets); this.show(false);   // the live HUD (timer, mission, radar) fades out behind the card
     $('rWatch').href = r.scn.scienceUrl || CONFIG.scienceFallbackUrl; $('rSub').href = CONFIG.subscribeUrl;
     const copy = async (txt, msg) => { try { await navigator.clipboard.writeText(txt); } catch { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); } $('copied').textContent = msg; };
-    $('rShare').onclick = async () => { $('copied').textContent = 'Making your card...'; $('copied').textContent = await this.shareCard(r); };
-    $('rLink').onclick = () => copy(r.link, 'Challenge link copied.');
+    $('rShare').onclick = async () => { count('shares'); $('copied').textContent = 'Making your card...'; $('copied').textContent = await this.shareCard(r); };
+    $('rLink').onclick = () => { count('links'); copy(r.link, 'Challenge link copied.'); };
+    $('rWatch').addEventListener('click', () => count('watch')); $('rSub').addEventListener('click', () => count('subs'));
     $('rRetry').onclick = handlers.retry;
-    $('rClip').onclick = async () => { $('copied').textContent = 'Preparing the clip...'; $('copied').textContent = await handlers.clip(); };
+    $('rClip').onclick = async () => { count('clips'); $('copied').textContent = 'Preparing the clip...'; $('copied').textContent = await handlers.clip(); };
     $('result').classList.remove('hide');
   }
   hideResult() { $('result').classList.add('hide'); }

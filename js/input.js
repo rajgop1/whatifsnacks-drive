@@ -32,8 +32,8 @@ export class Input {
     zone.addEventListener('pointermove', (e) => { if (e.pointerId !== this.stickId) return; const d = Math.max(-60, Math.min(60, e.clientX - ox)); this.touchSteer = d / 60; knob.style.transform = `translate(${d}px,0)`; });
     const end = (e) => { if (e.pointerId !== this.stickId) return; this.stickId = null; this.touchSteer = 0; knob.style.transform = ''; stick.classList.remove('on'); };
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
-    const hold = (id, k) => { const el = root.querySelector(id); el.addEventListener('pointerdown', (e) => { this[k] = true; this.any = this.touched = true; el.classList.add('down'); el.setPointerCapture(e.pointerId); e.preventDefault(); }); const up = () => { this[k] = false; el.classList.remove('down'); }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
-    hold('#btnBrake', 'touchBrake'); hold('#btnDrift', 'touchDrift'); hold('#btnL', 'touchL'); hold('#btnR', 'touchR');
+    const hold = (id, k) => { const el = root.querySelector(id); if (!el) return; el.addEventListener('pointerdown', (e) => { this[k] = true; this.any = this.touched = true; el.classList.add('down'); el.setPointerCapture(e.pointerId); e.preventDefault(); }); const up = () => { this[k] = false; el.classList.remove('down'); }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
+    hold('#btnBrake', 'touchBrake'); hold('#btnDrift', 'touchDrift'); hold('#btnL', 'touchL'); hold('#btnR', 'touchR'); hold('#btnBoost', 'touchBoost');
   }
   calibrate() { this.tiltZero = null; }   // the next reading becomes "straight ahead"
   async setTilt(on) {
@@ -45,18 +45,19 @@ export class Input {
     setTimeout(() => { if (this.tilt && !this.tiltSeen) { this.setTilt(false); this.tiltUI('none'); } }, 1500);   // a touch laptop has no sensor
   }
   poll() {
-    const k = this.keys; let steer = 0, brake = 0, hb = false, thr = 0;
+    const k = this.keys; let steer = 0, brake = 0, hb = false, boost = false;
     if (k.has('KeyA') || k.has('ArrowLeft')) steer -= 1; if (k.has('KeyD') || k.has('ArrowRight')) steer += 1;
-    if (k.has('KeyS') || k.has('ArrowDown')) brake = 1; if (k.has('KeyW') || k.has('ArrowUp')) thr = 1; if (k.has('Space')) hb = true;
+    if (k.has('KeyS') || k.has('ArrowDown')) brake = 1; if (k.has('Space')) hb = true;
+    if (k.has('KeyW') || k.has('ArrowUp') || k.has('ShiftLeft') || k.has('ShiftRight') || k.has('KeyB')) boost = true;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const p of pads) {
       if (!p) continue; const ax = p.axes[0] || 0; if (Math.abs(ax) > 0.15) { steer = ax; this.any = true; }
       const b = (i) => p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.2);
-      if (b(6)) { brake = Math.max(brake, p.buttons[6].value || 1); this.any = true; } if (b(7)) thr = 1; if (b(0) || b(1)) { hb = true; this.any = true; }
+      if (b(6)) { brake = Math.max(brake, p.buttons[6].value || 1); this.any = true; } if (b(7) || b(2) || b(5)) { boost = true; this.any = true; } if (b(0) || b(1)) { hb = true; this.any = true; }
     }
     if (this.tiltSteer) steer = this.tiltSteer; const lr = (this.touchR ? 1 : 0) - (this.touchL ? 1 : 0); if (lr) steer = lr;
-    if (this.touchSteer) steer = this.touchSteer; if (this.touchBrake) brake = 1; if (this.touchDrift) hb = true;
-    this.steer = Math.max(-1, Math.min(1, steer)); this.brake = brake; this.handbrake = hb; this.throttleKey = thr;
+    if (this.touchSteer) steer = this.touchSteer; if (this.touchBrake) brake = 1; if (this.touchDrift) hb = true; if (this.touchBoost) boost = true;
+    this.steer = Math.max(-1, Math.min(1, steer)); this.brake = brake; this.handbrake = hb; this.boost = boost;
     return this;
   }
 }

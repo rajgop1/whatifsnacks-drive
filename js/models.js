@@ -79,6 +79,80 @@ export function carLightsGeometry() {
   parts.push([new THREE.BoxGeometry(0.9, 0.03, 0.05), 0xff1830, M4(0, 0.8, -2.36)]);
   return bakeColored(parts);
 }
+// ---------------------------------------------------------------- the Volt Roadster: a low open two-seater (4.5 m, forward = +z). White vertices take the paint.
+const ROAD_BODY = [[-2.2, 0.34], [-2.26, 0.5], [-2.24, 0.7], [-2.08, 0.81], [-1.6, 0.86], [-1.2, 0.9], [-0.98, 0.97], [-0.8, 0.88], [-0.45, 0.8], [0.1, 0.8], [0.5, 0.84], [0.85, 0.82], [1.3, 0.76], [1.75, 0.67], [2.1, 0.57], [2.25, 0.45], [2.22, 0.34]];
+export function roadsterGeometry({ wheels = false } = {}) {
+  const paint = 0xffffff, dark = 0x17161e, trim = 0x2a2834, chrome = 0xc8ccd8, leather = 0x24212d, parts = [];
+  parts.push([extrudeSide(ROAD_BODY, 1.92, 0.13), paint]);
+  parts.push([new THREE.BoxGeometry(1.46, 0.03, 1.15), 0x121118, M4(0, 0.815, -0.18)]);                                   // cockpit floor
+  parts.push([new THREE.BoxGeometry(1.7, 0.13, 0.5), paint, M4(0, 0.87, 0.66, 0.05, 0, 0)]);                              // cowl and dash
+  parts.push([new THREE.BoxGeometry(1.52, 0.42, 0.035), 0x1a2236, M4(0, 1.03, 0.66, -0.75, 0, 0)]);                       // low raked windscreen
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.05, 0.46, 0.05), dark, M4(s * 0.77, 1.03, 0.66, -0.75, 0, 0)]);                  // A-pillars
+    parts.push([new THREE.BoxGeometry(0.52, 0.1, 0.52), leather, M4(s * 0.4, 0.88, -0.12)]);                                // seats
+    parts.push([new THREE.BoxGeometry(0.5, 0.52, 0.12), leather, M4(s * 0.4, 1.12, -0.42, -0.16, 0, 0)]);
+    parts.push([new THREE.BoxGeometry(0.3, 0.16, 0.1), leather, M4(s * 0.4, 1.46, -0.5)]);
+    parts.push([new THREE.SphereGeometry(0.3, 12, 8), paint, M4(s * 0.4, 0.98, -1.3, 0, 0, 0, 0.95, 0.62, 2.0)]);          // twin head fairings
+    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.965, 0.38, 1.33, 0, 0, Math.PI / 2)]);
+    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.965, 0.38, -1.3, 0, 0, Math.PI / 2)]);
+    parts.push([new THREE.BoxGeometry(0.06, 0.11, 1.9), dark, M4(s * 0.95, 0.35, 0)]);                                     // side skirts
+    parts.push([new THREE.BoxGeometry(0.03, 0.03, 1.5), chrome, M4(s * 0.965, 0.76, -0.05)]);                              // belt-line chrome
+    parts.push([new THREE.BoxGeometry(0.05, 0.16, 0.7), 0x0e0d14, M4(s * 0.96, 0.55, -0.55)]);                             // side intakes
+    parts.push([new THREE.BoxGeometry(0.1, 0.07, 0.18), paint, M4(s * 0.96, 0.93, 0.62)]);                                 // mirrors
+    parts.push([new THREE.BoxGeometry(0.34, 0.1, 0.06), dark, M4(s * 0.55, 0.36, -2.2)]);                                  // diffuser fins
+  }
+  parts.push([new THREE.BoxGeometry(1.5, 0.07, 0.07), dark, M4(0, 1.5, -0.62)]);                                           // roll hoop bar
+  parts.push([new THREE.BoxGeometry(0.06, 0.62, 0.06), dark, M4(-0.74, 1.2, -0.62)]); parts.push([new THREE.BoxGeometry(0.06, 0.62, 0.06), dark, M4(0.74, 1.2, -0.62)]);
+  parts.push([new THREE.TorusGeometry(0.17, 0.03, 6, 14), dark, M4(-0.4, 1.0, 0.28, -0.95, 0, 0)]);                       // steering wheel
+  parts.push([new THREE.BoxGeometry(1.84, 0.07, 0.34), dark, M4(0, 0.34, 2.18)]);                                          // splitter
+  parts.push([new THREE.BoxGeometry(0.9, 0.1, 0.05), 0x0e0d14, M4(0, 0.46, 2.27)]);                                        // low grille
+  parts.push([new THREE.BoxGeometry(1.7, 0.1, 0.22), dark, M4(0, 0.4, -2.22)]);                                            // rear valance
+  parts.push([new THREE.BoxGeometry(0.5, 0.15, 0.04), 0xf2f0e6, M4(0, 0.58, -2.29)]);                                      // plate
+  parts.push([new THREE.BoxGeometry(1.7, 0.12, 4.2), 0x111018, M4(0, 0.3, 0)]);                                            // underbody
+  parts.push([new THREE.BoxGeometry(1.9, 0.04, 0.3), paint, M4(0, 0.86, -2.0, 0.15, 0, 0)]);                              // tail lip
+  if (wheels) for (const sx of [-1, 1]) for (const sz of [1.33, -1.3]) { parts.push([new THREE.CylinderGeometry(0.37, 0.37, 0.28, 16), 0x16151c, M4(sx * 0.88, 0.37, sz, 0, 0, Math.PI / 2)]); }
+  return bakeColored(parts);
+}
+export function roadsterLightsGeometry() {
+  const parts = [];
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.5, 0.07, 0.07), 0xfff4e0, M4(s * 0.62, 0.62, 2.18, -0.3, s * -0.2, 0)]);
+    parts.push([new THREE.BoxGeometry(0.3, 0.02, 0.05), 0xffe2b8, M4(s * 0.64, 0.56, 2.22, 0, s * -0.2, 0)]);
+    parts.push([new THREE.BoxGeometry(0.5, 0.1, 0.05), 0xff1830, M4(s * 0.62, 0.72, -2.27)]);
+    parts.push([new THREE.BoxGeometry(0.05, 0.1, 0.34), 0xff1830, M4(s * 0.93, 0.72, -2.1)]);
+  }
+  parts.push([new THREE.BoxGeometry(0.7, 0.03, 0.05), 0xff1830, M4(0, 0.74, -2.28)]);
+  return bakeColored(parts);
+}
+// ---------------------------------------------------------------- the Star Hopper: a stainless-steel launch vehicle (37 m tall, 9 m wide, upright, base at y = 0).
+// Our own design: steel body, black belly shield on the -z side, two nose flaps and two tail flaps, a ring of engines. Pure white takes no tint here.
+export function rocketGeometry() {
+  const R = 4.5, parts = [], P = (r, y) => new THREE.Vector2(r, y);
+  const prof = [P(0, 0), P(R * 0.96, 0), P(R, 0.5), P(R, 26), P(R * 0.97, 28.4), P(R * 0.84, 31.6), P(R * 0.58, 34.6), P(R * 0.27, 36.6), P(0, 37.4)];
+  parts.push([new THREE.LatheGeometry(prof, 28), 0xd9dde6]);
+  parts.push([new THREE.LatheGeometry(prof.map((p) => P(p.x * 1.014, p.y)), 20, Math.PI - 1.0, 2.0), 0x1b1c24]);                 // black belly shield
+  for (const y of [5, 10, 15, 20, 25]) parts.push([new THREE.CylinderGeometry(R + 0.04, R + 0.04, 0.14, 28), 0xaeb4c2, M4(0, y, 0)]);   // weld seams
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.3, 5.2, 3.2), 0x2b2e3a, M4(s * (R + 0.45), 29.6, 0.3, 0, 0, s * -0.1)]);               // nose flaps
+    parts.push([new THREE.BoxGeometry(0.34, 7.4, 5.2), 0x2b2e3a, M4(s * (R + 1.1), 6.2, 0.2, 0, 0, s * 0.18)]);                  // tail flaps
+    parts.push([new THREE.BoxGeometry(0.5, 0.5, 0.5), 0x10121c, M4(s * 1.6, 32.8, R * 0.5)]);                                    // cabin windows
+  }
+  parts.push([new THREE.BoxGeometry(3.6, 0.25, 0.3), 0x10121c, M4(0, 31.6, R * 0.82)]);
+  parts.push([new THREE.CylinderGeometry(0.75, 1.15, 1.6, 12), 0x3a3a46, M4(0, -0.5, 0)]);                                      // engines
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; parts.push([new THREE.CylinderGeometry(0.7, 1.05, 1.5, 10), 0x3a3a46, M4(Math.sin(a) * 2.5, -0.45, Math.cos(a) * 2.5)]); }
+  parts.push([new THREE.BoxGeometry(1.4, 1.4, 0.4), 0xff6b57, M4(0, 12, R + 0.04)]);                                              // a coral square on the nose side: the channel colour
+  return bakeColored(parts);
+}
+export function padGeometry() {
+  const parts = [];
+  parts.push([new THREE.CylinderGeometry(15, 16, 1.2, 32), 0x8a8794, M4(0, 0.5, 0)]);
+  parts.push([new THREE.CylinderGeometry(8, 8, 0.2, 24), 0x3b3a46, M4(0, 1.12, 0)]);                                           // flame deflector plate
+  for (const [x, z] of [[-1.4, -1.4], [1.4, -1.4], [1.4, 1.4], [-1.4, 1.4]]) parts.push([new THREE.BoxGeometry(0.45, 52, 0.45), 0xe05a3c, M4(15.5 + x, 26, z)]);   // launch tower legs
+  for (let y = 3; y < 52; y += 5) { parts.push([new THREE.BoxGeometry(3.4, 0.3, 0.3), 0xb84a30, M4(15.5, y, -1.4)]); parts.push([new THREE.BoxGeometry(3.4, 0.3, 0.3), 0xb84a30, M4(15.5, y, 1.4)]); parts.push([new THREE.BoxGeometry(0.3, 0.3, 3.4), 0xb84a30, M4(14.1, y, 0)]); parts.push([new THREE.BoxGeometry(0.3, 0.3, 3.4), 0xb84a30, M4(16.9, y, 0)]); }
+  parts.push([new THREE.BoxGeometry(11, 1.2, 1.4), 0x9a9aa8, M4(9.5, 30, 0)]);                                                  // the arm that holds the rocket
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; parts.push([new THREE.CylinderGeometry(0.2, 0.2, 7, 6), 0xd8d8e0, M4(Math.sin(a) * 13, 3.5, Math.cos(a) * 13)]); }   // fire-suppression pipes
+  return bakeColored(parts);
+}
 export function sirenGeometry() { // two bulbs: blue left, red right (colour animated by the material)
   return bakeColored([[new THREE.BoxGeometry(0.48, 0.12, 0.26), 0x2a5bff, M4(-0.33, 1.52, -0.2)], [new THREE.BoxGeometry(0.48, 0.12, 0.26), 0xff2030, M4(0.33, 1.52, -0.2)]]);
 }

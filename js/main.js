@@ -5,6 +5,7 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 import * as L from './layout.js';
 import { buildCity } from './city.js';
 import { Car, ghostCar } from './car.js';
+import { VEHICLES, vehicleById } from './vehicles.js';
 import { Traffic } from './traffic.js';
 import { Packets, Tornado, Cubes, Drones, Heli } from './hazards.js';
 import { Peds } from './peds.js';
@@ -19,6 +20,7 @@ import { scenarioFor, pad3 } from './scenarios.js';
 import { makeRoute, encodeGhost, decodeGhost, ghostAt, GHOST_HZ, commentCode, challengeLink, shareText, autopilot, fmtTime } from './run.js';
 import { clamp, damp, radial, tex } from './util.js';
 import { Clip, Stats } from './clip.js';
+import { count, countOnce } from './counter.js';
 
 const Q = new URLSearchParams(location.search), H = new URLSearchParams(location.hash.slice(1));
 const CAPTURE = Q.has('capture'), MANUAL = Q.has('manual'), AUTO = CAPTURE || Q.has('auto'), NOHUD = Q.get('hud') === '0';
@@ -26,6 +28,7 @@ const isTouch = Q.get('touch') === '1' || matchMedia('(pointer: coarse)').matche
 let tier = Q.get('q') || (isTouch || Math.min(screen.width, screen.height) < 700 ? 'medium' : 'high');
 document.documentElement.classList.add(isTouch ? 'touch' : 'notouch', tier); if (CAPTURE) document.documentElement.classList.add('capture'); if (Q.get('hud') === '0') document.documentElement.classList.add('nohud');
 const DAY = Math.max(1, Math.floor(+H.get('d') || +Q.get('d') || featuredDay())), SCN = scenarioFor(DAY);   // a hand-typed #d=-5 or d=1.5 must still land on a scenario
+const stored = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
 const lbar = document.getElementById('lbar'), nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const progress = (p) => { lbar.style.width = Math.round(p * 100) + '%'; };
 const T0 = performance.now();
@@ -67,7 +70,7 @@ function makeArrow() {
 async function boot() {
   progress(0.1); await nextFrame();
   city = buildCity(scene, tier, (p) => progress(0.1 + p * 0.7)); progress(0.82); await nextFrame();
-  car = new Car(scene, { quality: tier }); fx = new Particles(scene);
+  car = new Car(scene, { quality: tier, vehicle: vehicleById(Q.get('v') || stored('wis-vehicle'))}); fx = new Particles(scene); hud.garage(car.v);
   traffic = new Traffic(scene, tier === 'high' ? 34 : tier === 'medium' ? 26 : 16, DAY);
   arrow = makeArrow();
   packets = new Packets(scene); tornado = new Tornado(scene); cubes = new Cubes(scene); drones = new Drones(scene); ghostMesh = ghostCar(scene);
@@ -77,6 +80,7 @@ async function boot() {
   document.getElementById('loading').classList.add('hide');
   window.__oc.ready = true; window.__oc.bootMs = performance.now() - T0;
   toTitle();
+  count('visits'); countOnce('people', 'wis-seen');   // anonymous: a page load, and once per browser
   if (CAPTURE) turnKey();
   if (!MANUAL) requestAnimationFrame(loop);
 }
@@ -107,15 +111,23 @@ function turnKey() {
   setTimeout(() => { hud.hideTitle(); document.getElementById('key').classList.remove('turn'); }, 260);
   car.bobV = -1.2; for (let k = 0; k < 7; k++) { const sx = Math.sin(car.yaw), sz = Math.cos(car.yaw); fx.emit(car.x - sx * 2.5 + (Math.random() - 0.5) * 0.6, 0.45, car.z - sz * 2.5, -sx * 2 + (Math.random() - 0.5), 0.6 + Math.random(), -sz * 2 + (Math.random() - 0.5), { life: 0.9, size: 0.5, grow: 1.8, drag: 1.5, r: 0.8, g: 0.78, b: 0.82 }); }
   [0, 120, 260].forEach((ms, k) => setTimeout(() => audio.whoosh(k), 150 + ms));
-  if (!CAPTURE) { Stats.attempt(TODAY); if (!MANUAL) clip.start(); }
+  if (!CAPTURE) { Stats.attempt(TODAY); if (!MANUAL) clip.start(); count('plays'); count('car-' + car.v.id); }
   R.state = 'intro'; setTimeout(() => hud.show(true), 150); hud.meter(meterLabel(), SCN.startPct, true);
   if (SCN.onStart) SCN.onStart(api);
 }
 document.getElementById('key').addEventListener('click', turnKey);
-addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); });
+// the garage: pick a car on the title screen, the model swaps in front of you
+function pickCar(dir) {
+  if (R.state !== 'title') return;
+  const i = (VEHICLES.indexOf(car.v) + dir + VEHICLES.length) % VEHICLES.length, v = VEHICLES[i];
+  car.setVehicle(v); hud.garage(v); audio.chime(2 + i); cam.kick = 0.6;
+  try { localStorage.setItem('wis-vehicle', v.id); } catch (e) { /* private window */ }
+}
+document.getElementById('gPrev').addEventListener('click', () => pickCar(-1)); document.getElementById('gNext').addEventListener('click', () => pickCar(1));
+addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); if (R.state === 'title' && !e.repeat) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') pickCar(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') pickCar(1); } });
 const beats = (a, b) => !b || a.pct > b.pct || (a.pct === b.pct && a.time < b.time);   // more percent first, then faster
 function retry() { if (R.ownGhost && beats(R.ownGhost, R.ghost)) R.ghost = R.ownGhost; R.state = 'title'; turnKey(); }   // the ghost is the best run so far, never a worse retry
-const api = { hud, audio, car, traffic, cubes, tornado, R };   // what scenario hooks may touch
+const api = { hud, audio, get car() { return car; }, get traffic() { return traffic; }, get cubes() { return cubes; }, get tornado() { return tornado; }, R };   // what scenario hooks may touch
 
 function addChaos(v) { R.chaos = Math.min(5.99, R.chaos + v); }
 const live = () => R.state === 'live' || R.state === 'intro';
@@ -129,6 +141,7 @@ function poof(x, z) {   // a big soft cloud with gold sparks and a whoosh
 }
 function crashPop(v, label) { hud.plus(label, 'hit'); cam.shake = Math.max(cam.shake, Math.min(1.4, 0.4 + v * 0.04)); cam.kick = Math.max(cam.kick, -0.4); }
 function collect(p, i) {
+  car.boostE = Math.min(1, car.boostE + 0.2);   // every packet tops the boost tank up a fifth
   R.got++; R.pct = Math.min(100, SCN.startPct + R.got * SCN.packetPct); audio.chime(R.got); hud.plus(`+${SCN.packetPct}%`); hud.meter(meterLabel(), R.pct, R.pct < 100, true);
   fx.burst(p.x, 2.2, p.z, 26, 9, { life: 0.8, size: 0.22, grow: -0.4, drag: 2.5, grav: 6, r: 1, g: 0.85, b: 0.3, add: 1 }, 0.8);
   fx.burst(p.x, 2.2, p.z, 6, 5, { life: 0.45, size: 1.3, grow: 1.2, drag: 3, r: 0.7, g: 0.45, b: 0.12, add: 1 }, 0.2);   // a soft golden pop (kept small: additive + bloom blows out fast)
@@ -144,12 +157,12 @@ function fire(e) {
     const [i, j] = nodes[Math.min(nodes.length - 1, k + (e.ahead || 2))]; tornado.spawn(i * L.P, j * L.P, i, j); hud.toast('DATA TORNADO', 'TWO BLOCKS AHEAD'); R.chaos = Math.max(R.chaos, 1);
   } else if (e.type === 'cubeRain') { cubes.rain('data', e.count, e.every, e.size, R.sim); hud.toast('CUBE RAIN', 'DATA IS FALLING'); }
   else if (e.type === 'iceRain') { cubes.rain('ice', e.count, e.every, e.size, R.sim); hud.toast('ICE INCOMING', `${Math.round(e.size ** 3 * 0.917)} TONNES EACH`); }   // ice is 917 kg/m³
-  else if (e.type === 'gravity') { R.env.g = e.g; R.gravityUntil = R.timerT + e.duration; hud.toast('GRAVITY DROP', `${e.duration} SECONDS OF MOON`); traffic.cars.forEach((c, k) => { if (k % 3 === 0 && c.mode !== 'fly') traffic.launch(c, 'shove', 0, 0, 6); }); }
-  else if (e.type === 'slick') { R.env.grip = e.grip; R.slickUntil = R.timerT + e.duration; hud.toast('ROADS ICED', 'GRIP IS GONE'); }
+  else if (e.type === 'gravity') { R.env.g = e.g; R.gravityUntil = R.timerT + e.duration; hud.toast(e.label || 'GRAVITY DROP', e.sub || `${e.duration} SECONDS OF MOON`); traffic.cars.forEach((c, k) => { if (k % 3 === 0 && c.mode !== 'fly') traffic.launch(c, 'shove', 0, 0, 6); }); }
+  else if (e.type === 'slick') { R.env.grip = e.grip; R.slickUntil = R.timerT + e.duration; hud.toast(e.label || 'ROADS ICED', e.sub || 'GRIP IS GONE'); }
   audio.alarm();
 }
 function finish() {
-  R.state = 'done'; R.endT = R.t; audio.finish(R.pct >= 100);
+  R.state = 'done'; R.endT = R.t; audio.finish(R.pct >= 100); count('done'); if (R.pct >= 100) count('wins');
   const ghost = encodeGhost(DAY, R.t, R.pct, R.maxPips, R.rec);
   R.ownGhost = decodeGhost(ghost);
   const link = challengeLink(DAY, ghost), code = commentCode(DAY, R.t, R.pct, R.maxPips, ghost);
@@ -164,18 +177,18 @@ function finish() {
 }
 
 // ---------------------------------------------------------------- simulation step (fixed 60 Hz)
-const ctl = { steer: 0, throttle: 0, brake: 0, handbrake: false };
+const ctl = { steer: 0, throttle: 0, brake: 0, handbrake: false, boost: false };
 const gpos = [0, 0, 0];
 let hidden = false;
 function step(dt) {
   R.sim += dt; input.poll();
-  ctl.steer = 0; ctl.throttle = 0; ctl.brake = 0; ctl.handbrake = false;
+  ctl.steer = 0; ctl.throttle = 0; ctl.brake = 0; ctl.handbrake = false; ctl.boost = false;
   if (R.state === 'intro' || R.state === 'live') {
     R.t += dt; R.ap.t = R.t;
     const auto = AUTO || (R.state === 'intro' && !input.any);
     R.ap.time = Q.has('reds') ? undefined : R.sim;   // ?reds = autopilot runs red lights (to measure a fast human line)
     if (auto) { if (R.t > 0.25) autopilot(car, R.route, R.ap, ctl); R.ap.cruise = R.state === 'intro' && !AUTO ? 22 : 31; { const ni = packets.nextIndex(); R.ap.packet = ni >= 0 ? packets.list[ni] : null; } }
-    else { ctl.steer = input.steer; ctl.brake = input.brake; ctl.throttle = input.brake ? 0 : 1; ctl.handbrake = input.handbrake; }
+    else { ctl.steer = input.steer; ctl.brake = input.brake; ctl.throttle = input.brake ? 0 : 1; ctl.handbrake = input.handbrake; ctl.boost = input.boost; }
     // the launch: 1.5 s of boosted full throttle with a burnout, tyre squeal and the camera pulling back
     ctl.launch = R.t > 0.1 && R.t < 1.6 && !ctl.brake;
     if (ctl.launch) { ctl.throttle = 1; if (!R.launched) { R.launched = true; audio.launch(); cam.pull = 1; cam.kick = 0.8; } }
@@ -196,6 +209,7 @@ function step(dt) {
   } else if (R.state === 'done') { ctl.brake = 1; R.t = R.endT; }
   else { R.saidRadio = false; }
   car.update(dt, ctl, R.env, fx);
+  if (car.boosting) { cam.kick = Math.max(cam.kick, 0.5); if (!R.boostSnd || R.sim - R.boostSnd > 0.5) { R.boostSnd = R.sim; audio.whoosh(1); } }
   // chaos: hard hits, corner cutting over sidewalks and parks, decays when you drive clean
   if (R.state === 'live' || R.state === 'intro') {
     if (car.impact > 8 && car.impact > R.lastImpact + 4) { addChaos(car.impact > 18 ? 0.6 : 0.35); audio.crash(car.impact); crashPop(car.impact, car.impact > 18 ? 'WRECKED!' : 'CRASH!'); }
@@ -247,11 +261,12 @@ const _v = new THREE.Vector3(), _q2 = new THREE.Quaternion();
 function updateCamera(dt, time) {
   const portrait = camera.aspect < 0.8, speed = car.speed;
   if (R.state === 'title') {
-    cam.orbit += dt * 0.12; const a = L.SPAWN.yaw + Math.PI + 0.5 * Math.sin(cam.orbit) + 0.35;
-    const tx = car.x + Math.sin(a) * (portrait ? 11 : 9), tz = car.z + Math.cos(a) * (portrait ? 11 : 9);
-    cam.x = damp(cam.x, tx, 2, dt); cam.z = damp(cam.z, tz, 2, dt); cam.y = damp(cam.y, 2.6, 2, dt);
-    cam.lx = car.x - Math.sin(car.yaw) * -6; cam.ly = 2.2; cam.lz = car.z - Math.cos(car.yaw) * -6;
-    cam.fov = portrait ? 66 : 52;
+    // the showroom shot: a slow orbit round the car, held in the band between the title text and the garage buttons
+    cam.orbit += dt * 0.15; const a = L.SPAWN.yaw + 0.75 + 0.7 * Math.sin(cam.orbit), dist = portrait ? 12.5 : 7.2;
+    const tx = car.x + Math.sin(a) * dist, tz = car.z + Math.cos(a) * dist;
+    cam.x = damp(cam.x, tx, 2, dt); cam.z = damp(cam.z, tz, 2, dt); cam.y = damp(cam.y, 1.7, 2, dt);
+    cam.lx = car.x; cam.ly = car.y + (portrait ? 0.25 : 0.55); cam.lz = car.z;
+    cam.fov = portrait ? 62 : 46;
   } else {
     // swing behind the direction of travel, not just the nose
     let hx = Math.sin(car.yaw), hz = Math.cos(car.yaw);
@@ -311,7 +326,7 @@ function render(dt) {
   ghostMesh.visible = !!gh; if (gh) { ghostMesh.position.set(gpos[0], L.groundY(gpos[0], gpos[1]) + 0.02, gpos[1]); ghostMesh.rotation.y = gpos[2]; }
   // HUD
   if (R.state === 'intro' || R.state === 'live' || R.state === 'done') {
-    hud.timer(R.timerOn ? CONFIG.runSeconds - R.timerT : CONFIG.runSeconds, R.timerOn); hud.speed(Math.round(car.speed * 3.6));
+    hud.timer(R.timerOn ? CONFIG.runSeconds - R.timerT : CONFIG.runSeconds, R.timerOn); hud.speed(Math.round(car.speed * 3.6)); hud.boost(car.boostE, car.boostLock, car.boosting);
     const blips = BLIPS; blips.length = 0; const ni = packets.nextIndex();
     packets.list.forEach((p, i) => { if (!p.got) blips.push({ x: p.x, z: p.z, kind: i === ni ? 'next' : 'packet' }); });
     if (tornado.active) blips.push({ x: tornado.x, z: tornado.z, kind: 'tornado' });
@@ -343,7 +358,7 @@ function loop(now) {
   // adaptive resolution and the tier probe
   adaptT += dtReal; probeT += dtReal;
   if (adaptT > 0.6) { adaptT = 0; const old = scale; if (ema > 17.6) scale = Math.max(0.55, scale - 0.06); else if (ema < 14.2) scale = Math.min(1, scale + 0.04); if (old !== scale) resize(); }
-  if (probeT > 2.5 && ema > 30 && scale <= 0.6 && tier !== 'low' && !Q.get('q')) { probeT = 0; dropTier(); }
+  if (probeT > 4 && ema > 38 && scale <= 0.6 && tier !== 'low' && !Q.get('q') && !document.hidden && document.hasFocus()) { probeT = 0; dropTier(); }   // really slow (under ~26 fps at the lowest resolution) and the tab is in front; a 30 fps power-saver or a backgrounded tab must not cost the quality for good
   const c1 = performance.now(); render(dtReal); const c2 = performance.now(); cpu.step = cpu.step * 0.95 + (c1 - c0) * 0.05; cpu.render = cpu.render * 0.95 + (c2 - c1) * 0.05;
 }
 const cpu = { step: 0, render: 0 };
@@ -352,7 +367,7 @@ document.addEventListener('visibilitychange', () => { hidden = document.hidden; 
 // ---------------------------------------------------------------- test / capture hooks
 window.__oc = {
   ready: false, fps: 0, get tier() { return tier; }, get state() { return R.state; }, get R() { return R; }, get car() { return car; },
-  key: turnKey, retry, get audio() { return audio; }, get heli() { return heli; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
+  key: turnKey, retry, pick: pickCar, get audio() { return audio; }, get heli() { return heli; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
   advance(dt) { const n = Math.max(1, Math.round(dt * 60)); for (let i = 0; i < n; i++) step(1 / 60); render(dt); return R.state; },
   stats: () => ({ fps, ema, cpuStep: +cpu.step.toFixed(2), cpuRender: +cpu.render.toFixed(2), scale, tier, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, state: R.state, pct: R.pct, pips: R.pips, t: R.t, x: car.x, z: car.z, speed: car.speed }),
 };
