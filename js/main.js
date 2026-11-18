@@ -24,6 +24,7 @@ import { count, countOnce } from './counter.js';
 import { Radio } from './radio.js';
 import { award } from './badges.js';
 import { Police } from './police.js';
+import { Ramps } from './ramps.js';
 import { Style, fmt$, bank as readBank, PAINTS } from './style.js';
 
 const Q = new URLSearchParams(location.search), H = new URLSearchParams(location.hash.slice(1));
@@ -119,7 +120,7 @@ function updateRain(dt) {
 
 // ---------------------------------------------------------------- world and actors
 const hud = new Hud(), input = new Input(document.body), audio = new Audio(), clip = new Clip(canvasEl, audio), radio = new Radio(audio, hud);
-let style, police, city, car, traffic, packets, tornado, cubes, drones, fx, ghostMesh, post, peds, heli, eggs, arrow;
+let style, police, ramps, city, car, traffic, packets, tornado, cubes, drones, fx, ghostMesh, post, peds, heli, eggs, arrow;
 let free = Q.get('free') === '1' || (!Q.has('free') && stored('wis-free') === '1');   // FREE ROAM: no timer, endless deliveries, random what-if events, you choose when to stop
 let paintIdx = Math.max(0, Math.min(PAINTS.length - 1, Math.trunc(+stored('wis-paint')) || 0)); if (PAINTS[paintIdx].cost > readBank()) paintIdx = 0;
 const paintOf = (v) => (PAINTS[paintIdx].c == null ? v.paint : PAINTS[paintIdx].c);
@@ -134,7 +135,7 @@ function makeArrow() {
 }
 async function boot() {
   progress(0.1); await nextFrame();
-  city = buildCity(scene, tier, (p) => progress(0.1 + p * 0.7)); progress(0.82); await nextFrame();
+  city = buildCity(scene, tier, (p) => progress(0.1 + p * 0.7)); ramps = new Ramps(scene, tier); progress(0.82); await nextFrame();
   car = new Car(scene, { quality: tier, vehicle: carById(sel.id), paint: paintOf(carById(sel.id)) }); fx = new Particles(scene); hud.garage(sel); showSel();
   traffic = new Traffic(scene, tier === 'high' ? 34 : tier === 'medium' ? 26 : 16, DAY); police = new Police(scene, tier, audio);
   arrow = makeArrow();
@@ -178,7 +179,7 @@ function resetRun() {
   car.reset(L.SPAWN.x, L.SPAWN.z, L.SPAWN.yaw); packets.set(R.route.packets); tornado.hide(); cubes.clear(); drones.setCount(0, car);
   Object.assign(R, { t: 0, near: 0, goalShown: false, launched: false, stuckT: 0, timerOn: false, timerT: 0, pct: SCN.startPct, got: 0, chaos: 0, pips: 0, maxPips: 0, env: { g: 9.8, grip: 1 }, rec: [], recT: 0, ap: { idx: 0, t: 0 }, gravityUntil: -1, slickUntil: -1, lastImpact: 0 });
   R.events = SCN.events.map((e) => ({ ...e, fired: false })); input.any = false;
-  police.reset(); R.free = free; R.nextEv = 26; document.body.classList.toggle('freerun', free);
+  police.reset(); ramps.reset(); R.jumps = new Set(); R.free = free; R.nextEv = 26; document.body.classList.toggle('freerun', free);
   if (free) { R.events = []; packets.set(freePackets(4)); hud.meterN(0); } eggs.reset(); style.reset(); city.roadMat.userData.wet = 0;
 }
 function turnKey() {
@@ -358,7 +359,7 @@ function step(dt) {
     R.chaos = Math.max(R.timerOn ? 0 : 0, R.chaos - 0.035 * dt);
     const p = Math.min(5, Math.floor(R.chaos)); if (p !== R.pips) { if (p > R.pips) audio.alarm(); R.pips = p; hud.pips(p); drones.setCount(p, car); } R.maxPips = Math.max(R.maxPips, p);
   }
-  R.lastImpact = car.impact; style.update(dt, car, R.state === 'live');
+  R.lastImpact = car.impact; style.update(dt, car, R.state === 'live'); ramps.update(dt, R.sim, car, R.state === 'live', JCB);
   traffic.update(dt, R.sim, car, tornado.active ? tornado : null, fx, (v) => { if (live()) { addChaos(0.45); audio.crash(v); crashPop(v, 'RAMMED!'); } });
   if (R.free && R.state === 'live') police.update(dt, R.sim, car, R.chaos, fx, PCB, traffic); else if (police.chasing) police.reset();   // SNACK PATROL: free roam only
   if (R.state !== 'title') packets.update(dt, R.sim, car, collect); else packets.update(dt, R.sim, { x: 1e9, z: 1e9, y: 0 }, () => {});
@@ -513,6 +514,7 @@ function render(dt) {
     packets.list.forEach((p, i) => { if (!p.got) blips.push({ x: p.x, z: p.z, kind: i === ni ? 'next' : 'packet' }); });
     if (tornado.active) blips.push({ x: tornado.x, z: tornado.z, kind: 'tornado' });
     for (const d of drones.list) if (d.on) blips.push({ x: d.x, z: d.z, kind: 'drone' });
+    for (const b of ramps.blips) blips.push({ x: b.x, z: b.z, kind: 'packet' });
     if (gh) blips.push({ x: gpos[0], z: gpos[1], kind: 'ghost' });
     if (heli.on) blips.push({ x: heli.x, z: heli.z, kind: 'heli' });
     for (const c of police.cruisers) blips.push({ x: c.x, z: c.z, kind: 'drone' });
@@ -529,6 +531,8 @@ function render(dt) {
   post.render();
 }
 const BLIPS = [];
+// stunt jumps: landing on a ramp's bullseye pad pays once per run (on top of the air-time bonus), the tally lives in localStorage
+const JCB = { onFly: () => audio.whoosh(1), onJump: (i, d) => { const first = !R.jumps.has(i); R.jumps.add(i); if (first) { style.add('UNIQUE JUMP', 1000); count('stunt-jump'); } hud.toast('STUNT JUMP', `${ramps.found.size}/${ramps.count} · ${Math.round(d)} M`, 1.8); } };
 // police callbacks: a bust takes a fine off the run's style cash and clears the heat; escaping clears it too
 const PCB = { onBust: (fine) => { style.run = Math.max(0, style.run - fine); R.chaos = 0; count('police-bust'); audio.thud(); }, onShove: (v) => { audio.thud(); crashPop(v, 'BONK!'); }, onLost: () => { R.chaos = 0; count('police-lost'); audio.chime(9); }, onSpawn: () => audio.alarm(), toast: (a, b) => hud.toast(a, b, 1.8) };
 
@@ -553,7 +557,7 @@ document.addEventListener('visibilitychange', () => { hidden = document.hidden; 
 window.__oc = {
   setNight: (n, now) => { setLook(n ? 1 : 0); if (now) { tod = todTarget; rain = rainTarget; applyTod(); } }, setLook: (i, now) => { setLook(i); if (now) { tod = todTarget; rain = rainTarget; applyTod(); } }, get tod() { return tod; }, get rain() { return rain; },
   ready: false, fps: 0, get tier() { return tier; }, get mode() { return mode; }, get sel() { return sel; }, THREE, get scene() { return scene; }, get state() { return R.state; }, get R() { return R; }, get car() { return car; },
-  key: turnKey, retry, pick: pickCar, get audio() { return audio; }, get heli() { return heli; }, get police() { return police; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
+  key: turnKey, retry, pick: pickCar, get audio() { return audio; }, get heli() { return heli; }, get police() { return police; }, get ramps() { return ramps; }, get style() { return style; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
   advance(dt) { const n = Math.max(1, Math.round(dt * 60)); for (let i = 0; i < n; i++) step(1 / 60); render(dt); return R.state; },
   stats: () => ({ fps, ema, cpuStep: +cpu.step.toFixed(2), cpuRender: +cpu.render.toFixed(2), scale, tier, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, state: R.state, pct: R.pct, pips: R.pips, t: R.t, x: car.x, z: car.z, speed: car.speed }),
 };

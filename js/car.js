@@ -106,7 +106,7 @@ export class Car {
     this.x = x; this.z = z; this.y = L.groundY(x, z); this.vy = 0; this.yaw = yaw; this.vx = 0; this.vz = 0; this.yawRate = 0; this.steer = 0;
     this.pitch = 0; this.roll = 0; this.bob = 0; this.bobV = 0; this.air = false; this.airT = 0; this.spin = 0; this.wheelRot = 0; this.wheelRotR = 0;
     this.impact = 0; this.lastSafe = [x, z, yaw]; this.offroad = 0; this.drift = 0; this.speed = 0; this.vf = 0; this.braking = false; this.lift = 0;
-    this.boostE = 1; this.boosting = false; this.boostLock = false; this.skidRear = this.skidFront = false; this.handbrake = false; this.prevVf = undefined;
+    this.boostE = 1; this.boosting = false; this.boostLock = false; this.skidRear = this.skidFront = false; this.handbrake = false; this.prevVf = undefined; this.ry0 = L.rampY(x, z); this.tilt = 0;
     if (this.skids) this.skids.cut();
   }
   // inp: { steer -1..1 (right +), throttle 0..1, brake 0..1, handbrake bool, boost bool }; env: { g, grip }
@@ -152,11 +152,16 @@ export class Car {
     const extraG = this.air ? Math.min(60, Math.max(0, this.airT - 3) * 16) : 0;
     this.vy -= (env.g + extraG) * dt; this.vy += this.lift * dt; this.y += this.vy * dt;
     const gy = L.groundY(this.x, this.z);
+    // stunt ramps: a grounded car carries the ramp's climb rate as vy, so it flies off the lip (only the ramp part of the ground: bridge and sand keep the old clamp;
+    // under 1 m/s is noise, so a slow car just rolls over; a step bigger than 25 m/s is a teleport or a side bump, not a slope)
+    const ry = L.rampY(this.x, this.z), rise = (ry - this.ry0) / dt; this.ry0 = ry;
     if (this.y > gy + 50) { this.y = gy + 50; this.vy = Math.min(this.vy, 0); }   // hard ceiling, 50 m over the ground
     if (this.y <= gy) {
       if (this.air && this.airT > 0.25) { this.impact = Math.max(this.impact, Math.abs(this.vy) * 0.6); this.bobV -= Math.abs(this.vy) * 0.25; if (fx) fx.burst(this.x, gy + 0.3, this.z, 14, 5, { life: 0.9, size: 1.6, grow: 2, drag: 3, r: 0.85, g: 0.8, b: 0.78 }, 0.2); }
-      this.y = gy; this.vy = Math.max(0, this.vy); this.air = false; this.airT = 0; this.spin = 0;
+      this.y = gy; this.vy = Math.max(0, this.vy); if (ground && rise > 1 && rise < 25) this.vy = Math.max(this.vy, Math.min(14, rise));
+      this.air = false; this.airT = 0; this.spin = 0;
     } else if (this.y > gy + 0.35) this.air = true;
+    this.tilt = damp(this.tilt, this.air ? 0 : -Math.atan(rise / Math.max(4, Math.abs(vf))) * (Math.abs(rise) < 25 ? 1 : 0), this.air ? 3 : 14, dt);   // nose up the ramp
     // walls: two circles along the body
     this.impact *= Math.exp(-6 * dt);
     for (const off of [1.25, -1.25]) {
@@ -202,7 +207,7 @@ export class Car {
   }
   render(dt) {
     this.root.position.set(this.x, this.y, this.z); this.root.rotation.set(0, this.yaw, 0);
-    this.body.rotation.set(this.pitch + (this.air ? -this.vy * 0.01 : 0), 0, this.roll, 'YXZ'); this.body.position.y = this.bob;
+    this.body.rotation.set(this.pitch + this.tilt + (this.air ? -this.vy * 0.01 : 0), 0, this.roll, 'YXZ'); this.body.position.y = this.bob;
     // wheels roll with the road; the rears lock on the handbrake and spin up in a burnout
     this.wheelRot += this.vf * dt; if (!this.handbrake || this.air) this.wheelRotR += (this.vf + (this.burnout ? 22 : 0)) * dt;
     const turn = -this.steer * this.P.steer * 0.85;

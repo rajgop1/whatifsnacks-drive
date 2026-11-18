@@ -60,10 +60,35 @@ export function surface(x, z) {   // 'land' | 'sand' | 'bridge' | 'water'
   return 'water';
 }
 export function sandY(z) { return z <= BEACH.z0 + 8 ? 0 : -2.6 * clamp((z - BEACH.z0 - 8) / (BEACH.z1 - BEACH.z0 - 8), 0, 1) ** 1.3; }
+// ---- stunt jump ramps (district map only): (x, z) = centre of the foot, yaw = heading (forward = sin, cos like the car).
+// A wedge rises 0 -> h over len, then a short back slope drops to the ground; the landing pad sits pad m past the lip.
+// Placed off every AI lane: the empty margin strips outside the ring road and the north-west park.
+export const RAMPS = (FULL ? [] : [
+  { x: -286, z: -262, yaw: Math.PI / 2 },   // NW park lawn, eastbound from the west strip
+  { x: 330, z: 150, yaw: Math.PI },         // east strip, northbound
+  { x: 330, z: -150, yaw: 0 },              // east strip, southbound
+  { x: -330, z: 50, yaw: Math.PI },         // west strip, northbound
+  { x: -330, z: 200, yaw: 0 },              // west strip, southbound toward the beach (run-up clear of ramp 3)
+  { x: 120, z: -330, yaw: Math.PI / 2 },    // north waterfront strip, eastbound under the skyline
+]).map((r) => {
+  const len = 19, back = 8, w = 7, h = 2.2, pad = 42, dx = Math.sin(r.yaw), dz = Math.cos(r.yaw), e = len + back + 1;
+  return { ...r, len, back, w, h, pad, padR: 10, dx, dz, lipX: r.x + dx * len, lipZ: r.z + dz * len, padX: r.x + dx * (len + pad), padZ: r.z + dz * (len + pad),
+    bx0: Math.min(r.x, r.x + dx * e) - w, bx1: Math.max(r.x, r.x + dx * e) + w, bz0: Math.min(r.z, r.z + dz * e) - w, bz1: Math.max(r.z, r.z + dz * e) + w };
+});
+// ramp height at (x, z), 0 off every ramp (a bounding-box early-out per ramp keeps it cheap)
+export function rampY(x, z) {
+  for (let i = 0; i < RAMPS.length; i++) {
+    const r = RAMPS[i]; if (x < r.bx0 || x > r.bx1 || z < r.bz0 || z > r.bz1) continue;
+    const ox = x - r.x, oz = z - r.z, u = ox * r.dx + oz * r.dz, v = ox * r.dz - oz * r.dx;
+    if (u < 0 || u > r.len + r.back || Math.abs(v) > r.w / 2) continue;
+    return u <= r.len ? r.h * u / r.len : r.h * (1 - (u - r.len) / r.back);
+  }
+  return 0;
+}
 export function groundY(x, z) {
   const s = surface(x, z);
   if (s === 'bridge') return bridgeY(x);
-  if (s === 'land') return 0;
+  if (s === 'land') return rampY(x, z);
   if (s === 'sand') return sandY(z);
   return WATER_Y - 3;
 }
