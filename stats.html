@@ -21,6 +21,7 @@ h2{margin:28px 0 10px;font-size:14px;letter-spacing:.14em;font-weight:900;color:
 <div class="sub">Anonymous counts from the live game. Updates every 30 seconds.</div>
 <div class="grid" id="top"></div>
 <h2>WHAT PEOPLE DRIVE</h2><div id="cars"></div>
+<h2>HOW FAR THEY GO: SPACE AND OCEAN</h2><div class="grid" id="far"></div>
 <h2>WHAT THEY DO AFTER A RUN</h2><div class="grid" id="after"></div>
 <div id="st">Loading...</div>
 <div class="note">How it counts: every page load is a visit; the first load in a browser is a person; every TURN THE KEY is a play; reaching the end of a run is a finish; 100% is a win. Tests, headless browsers and localhost are not counted.
@@ -29,17 +30,19 @@ To keep your own plays out of the numbers, open <a href="./?nocount=1">the game 
 <script>
 const NS = 'wisd-q7k2m9', API = 'https://abacus.jasoncameron.dev';
 const TOP = [['visits', 'VISITS', 'page loads'], ['people', 'PEOPLE', 'new browsers'], ['plays', 'PLAYS', 'runs started (TURN THE KEY)'], ['done', 'FINISHED', 'runs that ended'], ['wins', 'WINS', 'reached 100%']];
-const AFTER = [['shares', 'SHARE CARD', 'taps'], ['links', 'CHALLENGE LINK', 'taps'], ['watch', 'WATCH THE SCIENCE', 'taps to the Short'], ['subs', 'SUBSCRIBE', 'taps'], ['clips', 'SAVE CLIP', 'taps'], ['space', 'SPACE RUNS', 'rocket launches']];
-const CARS = [['car-coupe', 'SUN COUPE'], ['car-roadster', 'VOLT ROADSTER'], ['car-rocket', 'STAR HOPPER']];
+const AFTER = [['shares', 'SHARE CARD', 'taps'], ['links', 'CHALLENGE LINK', 'taps'], ['watch', 'WATCH THE SCIENCE', 'taps to the Short'], ['subs', 'SUBSCRIBE', 'taps'], ['clips', 'SAVE CLIP', 'taps']];
+const CARS = [['car-coupe', 'SUN COUPE'], ['car-roadster', 'VOLT ROADSTER'], ['car-van', 'SNACK VAN'], ['car-super', 'SIDEWINDER'], ['car-pickup', 'DUST HAULER'], ['car-rocket', 'STAR HOPPER'], ['car-sub', 'DEEP SNACK']];
+const FAR = [['space-karman', 'REACHED SPACE', 'passed the 100 km line'], ['space-orbit', 'REACHED THE ISS', '408 km'], ['space-moon', 'FLEW TO THE MOON', 'explore mode'], ['space-saturn', 'FLEW TO SATURN', 'explore mode'], ['sub-200m', 'DIVE 200 M', 'twilight zone'], ['sub-1000m', 'DIVE 1,000 M', 'no sunlight'], ['sub-wreck', 'FOUND THE WRECK', '3,800 m'], ['sub-trench', 'CHALLENGER DEEP', '10,935 m']];
 const get = async (k) => { try { const r = await fetch(`${API}/get/${NS}/${k}`); const j = await r.json(); return +j.value || 0; } catch (e) { return null; } };
 const fmt = (n) => (n == null ? '?' : n.toLocaleString());
 async function load() {
-  const keys = [...TOP, ...AFTER].map((x) => x[0]).concat(CARS.map((x) => x[0])), vals = {};
+  const keys = [...TOP, ...AFTER, ...FAR].map((x) => x[0]).concat(CARS.map((x) => x[0])), vals = {};
   await Promise.all(keys.map(async (k) => { vals[k] = await get(k); }));
   const card = ([k, name, hint], extra = '') => `<div class="card"><b>${fmt(vals[k])}</b><span>${name}</span><small>${hint}${extra}</small></div>`;
   const pct = (a, b) => (b ? ` · ${Math.round(100 * a / b)}% of ${b === vals.visits ? 'visits' : 'plays'}` : '');
   document.getElementById('top').innerHTML = TOP.map((x) => card(x, x[0] === 'plays' ? pct(vals.plays, vals.visits) : x[0] === 'done' ? pct(vals.done, vals.plays) : x[0] === 'wins' ? pct(vals.wins, vals.done) : '')).join('');
   document.getElementById('after').innerHTML = AFTER.map((x) => card(x)).join('');
+  document.getElementById('far').innerHTML = FAR.map((x) => card(x)).join('');
   const max = Math.max(1, ...CARS.map(([k]) => vals[k] || 0));
   document.getElementById('cars').innerHTML = CARS.map(([k, n]) => `<div class="bar"><span style="width:130px">${n}</span><i style="width:${Math.round(220 * (vals[k] || 0) / max)}px"></i><em>${fmt(vals[k])}</em></div>`).join('');
   document.getElementById('st').textContent = 'Updated ' + new Date().toLocaleTimeString() + (Object.values(vals).every((v) => v == null) ? ' · could not reach the counter service' : '');

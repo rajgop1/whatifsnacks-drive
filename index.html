@@ -91,10 +91,12 @@ html,body{max-width:100vw}
 #boostbar.lock #boostfill{background:#8a6a6a}#boostbar.fire #boostfill{background:var(--amber)}
 .touch #boostbar{display:none}
 #garage{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
-#garage button{pointer-events:auto;width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,244,230,.92);color:var(--navy);font:900 16px/1 var(--f);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+#garage button{flex:none;pointer-events:auto;width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,244,230,.92);color:var(--navy);font:900 16px/1 var(--f);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+#garage #gRadio{margin-right:6px;font-size:22px;padding-bottom:3px}#garage #gRadio.off{opacity:.55;text-decoration:line-through}
+#garage #gPaint{margin-left:6px;background:var(--pc,#ff6b57);border:3px solid var(--cream);box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 0 0 2px rgba(20,26,58,.55)}
 #garage svg{width:22px;height:22px;fill:none;stroke:var(--navy);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #garage button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
-#gName{min-width:min(54vw,240px);text-shadow:0 2px 0 rgba(0,0,0,.55)}
+#gName{min-width:0;flex:1 1 auto;max-width:min(54vw,240px);text-shadow:0 2px 0 rgba(0,0,0,.55)}
 #gName b{display:block;font-weight:900;font-size:clamp(16px,4.6vw,21px);letter-spacing:.06em;color:var(--cream)}
 #gName small{display:block;margin-top:2px;font-weight:800;font-size:11px;letter-spacing:.12em;color:var(--sun)}
 #btnL,#btnR{bottom:max(18px,var(--sa-bottom));width:var(--tb);height:var(--tb);background:rgba(255,244,230,.88)}
@@ -107,6 +109,8 @@ html,body{max-width:100vw}
 .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:max(16px,var(--sa-top)) 16px max(16px,var(--sa-bottom));text-align:center;transition:opacity .35s}
 .overlay.hide{opacity:0}.overlay.hide,.overlay.hide *{pointer-events:none!important}   /* a hidden overlay must not catch taps meant for the controls underneath */
 #title{background:linear-gradient(180deg,rgba(20,26,58,.65) 0%,rgba(20,26,58,0) 30%,rgba(20,26,58,0) 55%,rgba(20,26,58,.8) 100%);justify-content:space-between}
+#title>div:last-child{max-width:100%;padding:0 12px;box-sizing:border-box}   /* narrow phones: let the chips, the hint and the small print wrap instead of running off both edges */
+@media (max-width:460px){#garage{gap:6px;max-width:100%}#garage button{width:40px;height:40px}#garage #gRadio,#garage #gPaint{margin:0}#gName{max-width:calc(100vw - 214px)}}
 #title .head{margin-top:2vh}
 #title .day{font-weight:900;letter-spacing:.2em;font-size:clamp(12px,3.4vw,15px);color:var(--sun)}
 #title h1{margin:.2em 0 0;font-weight:900;font-size:clamp(30px,9vw,58px);line-height:.95;letter-spacing:-.01em;color:var(--cream);text-shadow:0 4px 0 var(--navy)}
@@ -116,10 +120,12 @@ html,body{max-width:100vw}
 #key:active{transform:translateY(4px);box-shadow:0 2px 0 #c99a1c}
 #ghostnote{margin-top:12px;font-weight:800;font-size:14px;color:var(--cream);min-height:1em}
 .disc{margin-top:12px;font-size:11px;opacity:.8;font-weight:600}
-#btnTilt{pointer-events:auto;margin-top:10px;min-height:44px;padding:0 18px;border:2px solid rgba(255,244,230,.7);border-radius:999px;background:rgba(20,26,58,.6);color:var(--cream);font:800 12px/1 var(--f);letter-spacing:.08em;cursor:pointer}
-#btnTilt.on{background:var(--sun);border-color:var(--sun);color:var(--navy)}
+#opts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+#btnFree,#btnTime,#btnTilt{pointer-events:auto;margin-top:0;min-height:44px;min-width:142px;padding:0 8px;border:2px solid rgba(255,244,230,.7);border-radius:999px;background:rgba(20,26,58,.6);color:var(--cream);font:800 12px/1 var(--f);letter-spacing:.08em;cursor:pointer}
+#btnTilt.on,#btnTime.on,#btnFree.on{background:var(--sun);border-color:var(--sun);color:var(--navy)}
+
 .notouch #btnTilt{display:none}
-@media (max-height:520px){#toast{font-size:26px}#garage{margin-bottom:6px}#garage button{width:42px;height:42px}#title .q{display:none}#title h1{font-size:clamp(26px,8vh,36px)}#key{padding:12px 10px;font-size:20px}#ghostnote,.how,#btnTilt,.disc{margin-top:6px}}   /* landscape phone: the whole title fits */
+@media (max-height:520px){#toast{font-size:26px}#garage{margin-bottom:6px}#garage button{width:42px;height:42px}#title .q{display:none}#title h1{font-size:clamp(26px,8vh,36px)}#key{padding:12px 10px;font-size:20px}#ghostnote,.how,#btnTilt,.disc{margin-top:6px}#btnTime{margin-right:6px}}   /* landscape phone: the whole title fits */
 #loading{background:var(--navy);justify-content:center;gap:14px}
 #loading .lb{width:min(60vw,260px);height:8px;border-radius:4px;background:rgba(255,255,255,.15);overflow:hidden}
 #loading .lb i{display:block;height:100%;width:5%;background:var(--sun);transition:width .2s}
@@ -155,6 +161,9 @@ html,body{max-width:100vw}
 #card .rpips .on .f{fill:var(--amber);stroke:#fff}#card .rpips .on .s{fill:var(--navy)}
 #card .fact.ghost{background:var(--navy2);color:var(--cream)}#card .fact.ghost b{color:var(--sun)}
 #card .btns+.btns,#card .eggs+.btns{margin-top:8px}
+#style{display:flex;align-items:center;justify-content:center;gap:10px;align-self:center;padding:5px 14px;font-weight:900;font-size:13px;letter-spacing:.1em;opacity:0;transform:translateY(-6px);transition:opacity .3s,transform .3s}
+#style.on{opacity:1;transform:none}#style span{color:var(--sun);font-size:11px}#style b{font-size:16px;font-variant-numeric:tabular-nums}#style i{font-style:normal;color:#ffb347;font-size:16px;min-width:1.6em}
+.plus.style{color:#ffb347;left:70%;top:58%;font-size:clamp(20px,5.4vw,30px)}
 .plus.hit{color:var(--coral);left:30%;top:54%;font-size:clamp(22px,6vw,34px)}
 .plus.near{color:#7dffc8;left:30%;top:40%;font-size:clamp(22px,6vw,34px)}
 #flash.pk{opacity:.18;background:var(--sun);transition:none}
@@ -163,6 +172,16 @@ html,body{max-width:100vw}
 .capture #top,.capture #radio,.capture #radar,.capture #speed,.capture #controls,.capture #hint,.capture .plus{display:none!important}
 .capture.nohud #hud{display:none}
 .capture .overlay{transition:none}
+/* modes (space, submarine): the city HUD pieces step aside, the mode draws its own into #modeui */
+#modeui{position:fixed;inset:0;pointer-events:none;z-index:3;font-family:var(--f);color:var(--cream)}
+#modeExit{position:fixed;left:max(10px,var(--sa-left));top:max(10px,var(--sa-top));z-index:6;display:none;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,244,230,.9);color:var(--navy);font:900 16px/1 var(--f);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.inmode #modeExit,.freerun #modeExit{display:block}
+.inmode #top,.inmode #barwrap,.inmode #radar,.inmode #speed,.inmode #boostbar,.inmode #hint{display:none!important}
+.inmode #topcol,.freerun #topcol{top:max(64px,calc(var(--sa-top) + 54px))}
+@media (max-height:640px){#title .q{font-size:13px}#opts{gap:6px;margin-top:6px}#btnFree,#btnTime,#btnTilt{min-height:40px}.how{display:none}}
+@media (max-height:520px){#radio canvas{display:none}#radio{padding:5px 10px}#radio .who{display:none}#radio .say{font-size:12px}
+.inmode #topcol,.freerun #topcol{top:max(10px,var(--sa-top));left:calc(max(10px,var(--sa-left)) + 48px)}
+#card{display:flex;flex-direction:column}#card .day{order:-3}#card h2{order:-2}#card .btns.main,#card #copied{order:-1}}   /* landscape result card: the button to go again comes first */
 @keyframes pulse{from{opacity:1}to{opacity:.55}}
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6)}100%{transform:scale(1)}}
 @keyframes rise{0%{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.15);opacity:1}100%{transform:translate(-50%,-90px) scale(1);opacity:0}}
@@ -178,6 +197,7 @@ html,body{max-width:100vw}
     <div id="right"><div id="timer" class="panel off">1:20</div><div id="pips" class="panel"></div></div>
   </div>
   <div id="barwrap" class="panel"><div id="barlabel"><span id="blabel">DOWNLOAD</span><b id="bpct">90%</b></div><div id="bar"><div id="fill"></div></div></div>
+  <div id="style" class="panel"><span>STYLE</span><b id="sRun">$0</b><i id="sCombo"></i></div>
   <div id="radio" class="panel"><canvas id="face" width="92" height="92"></canvas><div><div class="who">RADIO · THE HOODIE</div><div class="say" id="say"></div></div></div></div>
   <canvas id="radar"></canvas>
   <div id="speed"><span id="kmh">0</span><small>KM/H</small></div>
@@ -192,8 +212,9 @@ html,body{max-width:100vw}
 </div>
 <div id="title" class="overlay hide">
   <div class="head"><div class="day" id="tday">DAILY RUN #001</div><h1>WHAT IF SNACKS<br><span>DRIVE</span></h1><div class="q" id="tq"></div></div>
-  <div><div id="garage"><button id="gPrev" type="button" aria-label="Previous car"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8"/></svg></button><div id="gName"></div><button id="gNext" type="button" aria-label="Next car"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button></div><button id="key">TURN THE KEY</button><div id="ghostnote"></div><div class="how"><span class="t">HOLD ◀ ▶ OR DRAG TO STEER · BOOST · BRAKE · DRIFT</span><span class="d">← → OR A D STEER · W BOOST · S BRAKE · SPACE DRIFT</span></div><button id="btnTilt" type="button"></button><div class="disc">Original game. Not affiliated with Rockstar Games, Take-Two, Tesla or SpaceX.<br>Counts anonymous visits and plays. No accounts, no cookies.</div></div>
+  <div><div id="garage"><button id="gRadio" type="button" aria-label="Radio">♪</button><button id="gPrev" type="button" aria-label="Previous car"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8"/></svg></button><div id="gName"></div><button id="gNext" type="button" aria-label="Next car"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button><button id="gPaint" type="button" aria-label="Paint colour"></button></div><button id="key">TURN THE KEY</button><div id="ghostnote"></div><div class="how"><span class="t">HOLD ◀ ▶ OR DRAG TO STEER · BOOST · BRAKE · DRIFT</span><span class="d">← → OR A D STEER · W BOOST · S BRAKE · SPACE DRIFT</span></div><div id="opts"><button id="btnFree" type="button"></button><button id="btnTime" type="button"></button><button id="btnTilt" type="button"></button></div><div class="disc">Original game. Not affiliated with Rockstar Games, Take-Two, Tesla or SpaceX.<br>Counts anonymous visits and plays. No accounts, no cookies.</div></div>
 </div>
+<div id="modeui"></div><button id="modeExit" type="button" aria-label="Back to the garage">✕</button>
 <div id="result" class="overlay hide"><div id="card"></div></div>
 <div id="loading" class="overlay"><div style="font-weight:900;letter-spacing:.2em;font-size:13px;color:var(--sun)">WHAT IF SNACKS: DRIVE</div><div class="lb"><i id="lbar"></i></div><div class="disc">Original game. Not affiliated with Rockstar Games or Take-Two.</div></div>
 <script type="module">

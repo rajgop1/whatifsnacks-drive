@@ -14,4 +14,13 @@ export const VEHICLES = [
     driver: { x: -0.4, y: 0.5, z: -0.25, s: 0.58 }, helmet: true, beams: { x: 0.62, y: 0.6, z: 2.2 }, shadow: [2.7, 5.4], rear: -2.3,
     phys: { vmax: 54, accel: 19, launch: 34, brake: 34, grip: 9.6, hgrip: 1.6, steer: 0.62, steerLoss: 0.4, wb: 2.6, boostAccel: 26, boostV: 16, boostDrain: 0.32, boostRegen: 0.1 } },
 ];
+// Mode vehicles (kind 'mode') are not driven in the city: TURN THE KEY loads js/modes/<mode>.js, a self-contained world (see js/modes/README.md).
+// SHIP flips a mode on for everyone; until then it is reachable only by ?v=<id> (so the modes can be tested on the live host before they appear in the garage).
+const SHIP = { rocket: false, sub: false };
+const WANT = new URLSearchParams(location.search).get('v');
+for (const m of [
+  { id: 'rocket', kind: 'mode', mode: 'space', name: 'STAR HOPPER', tag: 'ROCKET · TO ORBIT AND BEYOND' },
+  { id: 'sub', kind: 'mode', mode: 'sub', name: 'DEEP SNACK', tag: 'SUBMARINE · DIVE TO THE TRENCH' },
+]) if (SHIP[m.id] || WANT === m.id) VEHICLES.push(m);
 export const vehicleById = (id) => VEHICLES.find((v) => v.id === id) || VEHICLES[0];
+export const carById = (id) => VEHICLES.find((v) => v.id === id && v.kind !== 'mode') || VEHICLES[0];   // what the city Car can be built from

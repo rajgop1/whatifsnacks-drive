@@ -1,0 +1,43 @@
+// Bodies for the "how far is it" scale tour. One checked number per line, source named.
+// radiusKm = mean (volumetric) radius. color = CSS hex string ('#rrggbb', fine for new THREE.Color).
+// distKm = distance FROM EARTH: closest approach for the planets, mean distance for the Moon and the Sun, altitude for the ISS and the Karman line.
+// sunKm = mean distance from the Sun (null for the ISS and the Karman line). lightSec = distKm / 299,792.458 km/s (one-way light time).
+const ROWS = [
+  { id: 'earth', name: 'EARTH', kind: 'planet', radiusKm: 6371, sunKm: 149597871, distKm: 0, color: '#3f7fd6',
+    fact: 'You are here. Earth is 12,742 km wide and races round the Sun at 29.8 km/s.',
+    source: 'NASA Earth Fact Sheet: mean radius 6,371.0 km; mean orbital velocity 29.78 km/s.' },
+  { id: 'karman', name: 'KARMAN LINE', kind: 'line', radiusKm: null, sunKm: null, distKm: 100, color: '#6fb4ff',
+    fact: 'Where space begins: 100 km. Drive straight up at 100 km/h and you arrive in one hour.',
+    source: 'FAI Karman line at 100 km; 100 km at 100 km/h is 1 h.' },
+  { id: 'iss', name: 'THE ISS', kind: 'station', radiusKm: null, sunKm: null, distKm: 408, color: '#d7dbe3',
+    fact: 'The space station flies at 7.66 km/s, about 27,600 km/h, 408 km above you.',
+    source: 'NASA ISS facts: orbital speed 7.66 km/s (27,600 km/h), typical altitude about 408 km.' },
+  { id: 'moon', name: 'THE MOON', kind: 'moon', radiusKm: 1737.4, sunKm: 149597871, distKm: 384400, color: '#c9c5bc',
+    fact: 'The Moon drifts 3.8 cm farther from Earth every year.',
+    source: 'NASA: lunar laser ranging with the Apollo retroreflectors, recession about 3.8 cm per year. Mean distance 384,400 km, radius 1,737.4 km (NASA Moon Fact Sheet).' },
+  { id: 'venus', name: 'VENUS', kind: 'planet', radiusKm: 6051.8, sunKm: 108200000, distKm: 38200000, color: '#e3bb76',
+    fact: 'The hottest planet at 464 °C. A day on Venus (243 Earth days) is longer than its year (225).',
+    source: 'NASA Planetary Fact Sheet: mean surface temperature 737 K (464 °C); rotation 243.0 d, orbit 224.7 d; minimum distance from Earth 38.2 million km.' },
+  { id: 'mars', name: 'MARS', kind: 'planet', radiusKm: 3389.5, sunKm: 227900000, distKm: 54600000, color: '#c1583a',
+    fact: 'Mars has a volcano 21.9 km tall, nearly two and a half Everests.',
+    source: 'NASA: Olympus Mons is about 21.9 km high; Everest 8.85 km; minimum distance from Earth 54.6 million km (Planetary Fact Sheet).' },
+  { id: 'mercury', name: 'MERCURY', kind: 'planet', radiusKm: 2439.7, sunKm: 57900000, distKm: 77300000, color: '#9c9690',
+    fact: 'Only 1.4 times as wide as our Moon, and its year lasts just 88 days.',
+    source: 'NASA Planetary Fact Sheet: radius 2,439.7 km against the Moon\'s 1,737.4 km (ratio 1.40); orbit 88.0 d; minimum distance from Earth 77.3 million km.' },
+  { id: 'sun', name: 'THE SUN', kind: 'star', radiusKm: 695700, sunKm: 0, distKm: 149597871, color: '#ffc94a',
+    fact: 'The sunlight on your face left the Sun 8 minutes 19 seconds ago.',
+    source: 'NASA Sun Fact Sheet: mean distance 149,597,871 km (1 AU); 149,597,871 / 299,792.458 = 499 s = 8 min 19 s; radius 695,700 km.' },
+  { id: 'jupiter', name: 'JUPITER', kind: 'planet', radiusKm: 69911, sunKm: 778500000, distKm: 588500000, color: '#d8a878',
+    fact: 'More than 1,300 Earths fit inside it, and it outweighs every other planet put together 2.5 times over.',
+    source: 'NASA Planetary Fact Sheet: volume 1,321 Earths; mass 1,898.1 x 10^24 kg against about 769 x 10^24 kg for the other seven; minimum distance from Earth 588.5 million km.' },
+  { id: 'saturn', name: 'SATURN', kind: 'planet', radiusKm: 58232, sunKm: 1433500000, distKm: 1195500000, color: '#e4cf9a',
+    fact: 'Saturn is less dense than water. In a big enough bath, it would float.',
+    source: 'NASA Planetary Fact Sheet: density 687 kg/m3 against 997 kg/m3 for water; minimum distance from Earth 1,195.5 million km.' },
+  { id: 'uranus', name: 'URANUS', kind: 'planet', radiusKm: 25362, sunKm: 2872500000, distKm: 2581900000, color: '#9fe0e6',
+    fact: 'Uranus rolls round the Sun on its side, tilted 98 degrees.',
+    source: 'NASA Planetary Fact Sheet: obliquity 97.77 degrees; minimum distance from Earth 2,581.9 million km.' },
+  { id: 'neptune', name: 'NEPTUNE', kind: 'planet', radiusKm: 24622, sunKm: 4495100000, distKm: 4305900000, color: '#4a6fe0',
+    fact: 'Winds on Neptune reach 2,000 km/h, the fastest in the Solar System.',
+    source: 'NASA Science: Neptune winds up to 1,200 mph (2,000 km/h); minimum distance from Earth 4,305.9 million km.' },
+];
+export const BODIES = ROWS.map((b) => ({ ...b, lightSec: +(b.distKm / 299792.458).toFixed(b.distKm < 1e6 ? 3 : 1) }));

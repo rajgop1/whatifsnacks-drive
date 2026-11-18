@@ -1,0 +1,43 @@
+// Milestones on a dive from the surface to the bottom of the Mariana Trench. One checked number per line, source named.
+// m = depth below sea level in metres. title = short on-screen label (caps). fact = one punchy line (no dashes).
+// atm = absolute pressure in atmospheres at that depth: 1 + 1025 kg/m3 x 9.80665 m/s2 x depth / 101,325 Pa (about 1 atm more per 10.08 m of seawater), rounded.
+// pressure = ready-made label for the HUD.
+const ROWS = [
+  { m: 10, title: 'TWO ATMOSPHERES',
+    fact: 'Ten metres down, the water already presses twice as hard as the air at the surface.',
+    source: 'US Navy Diving Manual and NOAA: seawater adds 1 atm per 33 ft (10.08 m), so 10 m is 1.99 atm absolute.' },
+  { m: 40, title: 'SCUBA LIMIT',
+    fact: 'The recreational scuba limit. The pressure is 5 times the surface and nitrogen starts to cloud your head.',
+    source: 'PADI and ISO 24801-2: 40 m maximum for recreational diving; 1 + 40 / 10.08 = 4.97 atm; nitrogen narcosis (US Navy Diving Manual).' },
+  { m: 200, title: 'SUNLIGHT ENDS',
+    fact: 'Below about 200 m there is too little light for plants to grow. Welcome to the twilight zone.',
+    source: 'NOAA Ocean Exploration: the sunlight (epipelagic) zone runs from the surface to about 200 m; the twilight zone from 200 to 1,000 m.' },
+  { m: 332, title: 'SCUBA RECORD',
+    fact: 'The deepest scuba dive ever: 332 m. The way back up took over 13 hours.',
+    source: 'Guinness World Records: Ahmed Gabr, Red Sea, 18 Sep 2014, 332.35 m; ascent 13 h 35 min.' },
+  { m: 1000, title: 'MIDNIGHT ZONE',
+    fact: 'No sunlight reaches below 1,000 m. The pressure is 100 times the surface.',
+    source: 'NOAA Ocean Exploration: the midnight (bathypelagic) zone starts at 1,000 m; 1 + 1000 / 10.08 = 100 atm.' },
+  { m: 2992, title: 'DEEPEST WHALE',
+    fact: 'A Cuvier\'s beaked whale dived 2,992 m on one breath, the deepest of any mammal ever tracked.',
+    source: 'Schorr et al., PLOS ONE, 2014: tagged Cuvier\'s beaked whales, deepest dive 2,992 m, longest 137.5 minutes.' },
+  { m: 3800, title: 'THE TITANIC',
+    fact: 'The Titanic rests about 3,800 m down, under 380 times the pressure at the surface.',
+    source: 'NOAA and Woods Hole Oceanographic Institution: wreck at about 12,500 ft (3,800 m); 1 + 3800 / 10.08 = 378 atm.' },
+  { m: 4000, title: 'THE ABYSS',
+    fact: 'Pitch dark, near freezing, and 400 times the pressure of the surface.',
+    source: 'NOAA Ocean Exploration: the abyssal (abyssopelagic) zone spans 4,000 to 6,000 m, with water at about 0 to 4 °C; 1 + 4000 / 10.08 = 398 atm.' },
+  { m: 6000, title: 'HADAL ZONE',
+    fact: 'Below 6,000 m the ocean floor drops into trenches. The zone is named after Hades.',
+    source: 'NOAA Ocean Exploration: the hadal zone is the deepest part of the ocean, 6,000 to about 11,000 m, found only in trenches.' },
+  { m: 6500, title: 'ALVIN\'S LIMIT',
+    fact: 'Even Alvin, the most famous research sub in the world, cannot go deeper than 6,500 m.',
+    source: 'Woods Hole Oceanographic Institution: after its 2021 upgrade the submersible Alvin is rated to 6,500 m.' },
+  { m: 8849, title: 'DEEPER THAN EVEREST',
+    fact: 'You have gone deeper than Mount Everest is tall. The summit is 8,849 m above sea level.',
+    source: 'Nepal and China joint survey, Dec 2020: Mount Everest is 8,848.86 m high.' },
+  { m: 10935, title: 'CHALLENGER DEEP',
+    fact: 'The deepest known place in the ocean. Put Everest on the bottom and its tip stays 2 km underwater.',
+    source: 'NOAA Ocean Exploration: Challenger Deep, Mariana Trench, about 10,935 m; the 2019 Five Deeps Expedition measured 10,928 m (Apr 2019). 10,935 - 8,849 = 2,086 m. Pressure over 1,000 atm.' },
+];
+export const OCEAN_FACTS = ROWS.map((r) => { const atm = Math.round(1 + (1025 * 9.80665 * r.m) / 101325); return { ...r, atm, pressure: `${atm} ATM` }; });

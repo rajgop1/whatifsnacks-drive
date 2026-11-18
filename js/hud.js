@@ -45,7 +45,7 @@ export class Hud {
   show(on) { this.el.classList.toggle('on', on); }
   mission(label, text) { $('mlabel').textContent = label; $('mtext').textContent = text; }
   meter(name, pct, pulse, flash) { if (flash) { const b = $('barwrap'); b.classList.remove('gain'); void b.offsetWidth; b.classList.add('gain'); } $('blabel').textContent = name; $('bpct').textContent = Math.round(pct) + '%'; $('fill').style.width = pct + '%'; $('barwrap').classList.toggle('pulse', !!pulse); }
-  timer(sec, on) { const t = $('timer'); t.textContent = fmtTime(Math.max(0, Math.ceil(sec))); t.classList.toggle('off', !on); t.classList.toggle('low', on && sec < 10); }
+  timer(sec, on, free) { const t = $('timer'); t.textContent = fmtTime(Math.max(0, free ? Math.floor(sec) : Math.ceil(sec))); t.classList.toggle('off', !on); t.classList.toggle('low', on && !free && sec < 10); }
   pips(n) { this.pipEls.forEach((p, i) => { p.classList.toggle('on', i < n); if (i === n - 1 && n > this.lastPips) { p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); } }); this.lastPips = n; }
   radio(text, dur = 3.2) { this.sayText = text; this.sayN = 0; $('say').textContent = ''; $('radio').classList.add('on'); this.radioT = dur + text.length / 38; this.talkT = 0; }
   toast(big, small = '', dur = 1.8) { $('toast').innerHTML = `${small ? `<small>${small}</small>` : ''}${big}`; $('toast').classList.add('on'); this.toastT = dur; }
@@ -62,6 +62,15 @@ export class Hud {
     const b = $('btnBoost'); b.style.setProperty('--e', e.toFixed(3)); b.classList.toggle('lock', lock); b.classList.toggle('fire', on);
     $('boostfill').style.width = (e * 100).toFixed(1) + '%'; $('boostbar').classList.toggle('lock', lock); $('boostbar').classList.toggle('fire', on);
   }
+  // relabel the touch buttons for a mode (BOOST / BRAKE / DRIFT become what that mode does); labels(null) restores them
+  labels(l) { const d = { boost: 'BOOST', brake: 'BRAKE', drift: 'DRIFT' }, set = (id, t) => { const e = $(id); if (e) (e.querySelector('span') || e).textContent = t; }; l = l || d; set('btnBoost', l.boost || d.boost); set('btnBrake', l.brake || d.brake); set('btnDrift', l.drift || d.drift); }
+  timeBtn(i) { const b = $('btnTime'); b.textContent = 'LOOK: ' + ['GOLDEN HOUR', 'NIGHT', 'RAIN', 'STORM'][i]; b.classList.toggle('on', i > 0); }
+  // the style chip: cash earned this run and the combo multiplier (hidden until the first dollar)
+  style(run, combo, t) { const e = $('style'); e.classList.toggle('on', run > 0); $('sRun').textContent = '$' + Math.round(run).toLocaleString('en-US'); const c = $('sCombo'); c.textContent = combo > 1 ? `×${combo}` : ''; c.style.opacity = combo > 1 ? Math.min(1, t) : 0; }
+  paint(p, hex) { const b = $('gPaint'); b.style.display = p ? '' : 'none'; if (p) { b.style.setProperty('--pc', '#' + (hex >>> 0).toString(16).padStart(6, '0')); b.title = 'PAINT: ' + p.n; b.setAttribute('aria-label', 'Paint colour: ' + p.n); } }
+  radioBtn(name) { const b = $('gRadio'); b.classList.toggle('off', name === 'OFF'); b.title = 'RADIO: ' + name; b.setAttribute('aria-label', 'Radio: ' + name); }
+  meterN(n) { $('blabel').textContent = 'DELIVERIES'; $('bpct').textContent = String(n); $('fill').style.width = ((n % 5) / 5 * 100) + '%'; }   // free roam: a count, the bar fills toward every fifth
+  freeBtn(on) { const b = $('btnFree'); b.textContent = on ? 'MODE: FREE ROAM' : 'MODE: DAILY RUN'; b.classList.toggle('on', on); }
   speed(kmh) { $('kmh').textContent = kmh; }
   flashRadar() { this.flash = 2.5; }
   update(dt) {
@@ -166,26 +175,27 @@ export class Hud {
   }
   result(r, handlers) {
     const card = $('card'), got = r.packets.filter((p) => p[2]).length, pips = Array.from({ length: 5 }, (_, i) => `<span class="pip${i < r.pips ? ' on' : ''}">${PIP}</span>`).join('');
-    card.innerHTML = `<div class="day">WHAT IF #${pad3(r.day)} · ${r.scn.name}</div>
-      <h2>${Hud.rank(r)}</h2>
-      <div class="hero"><canvas id="rmap"></canvas><div class="big"><b>${r.pct}%</b><span>${r.scn.meter}</span><div class="rpips">${pips}</div></div></div>
-      <div class="stats"><div class="stat"><b>${fmtTime(r.time)}</b><span>TIME</span></div><div class="stat"><b>${got}/${r.packets.length}</b><span>PACKETS</span></div><div class="stat"><b>${r.near}</b><span>${r.near === 1 ? 'NEAR MISS' : 'NEAR MISSES'}</span></div></div>
+    const cash = r.style ? '$' + Math.round(r.style.run).toLocaleString('en-US') : '$0';
+    card.innerHTML = `<div class="day">${r.free ? 'FREE ROAM' : `WHAT IF #${pad3(r.day)} · ${r.scn.name}`}</div>
+      <h2>${r.free ? (r.got >= 8 ? 'CITY COURIER' : r.got >= 3 ? 'ON THE ROUTE' : 'JUST CRUISING') : Hud.rank(r)}</h2>
+      <div class="hero"><canvas id="rmap"></canvas><div class="big"><b${r.free ? ' style="font-size:' + (cash.length > 6 ? 40 : 52) + 'px"' : ''}>${r.free ? cash : r.pct + '%'}</b><span>${r.free ? 'STYLE CASH' : r.scn.meter}</span><div class="rpips">${pips}</div></div></div>
+      <div class="stats"><div class="stat"><b>${fmtTime(r.time)}</b><span>TIME</span></div><div class="stat"><b>${r.free ? r.got : got + '/' + r.packets.length}</b><span>${r.free ? 'DELIVERIES' : 'PACKETS'}</span></div><div class="stat"><b>${r.near}</b><span>${r.near === 1 ? 'NEAR MISS' : 'NEAR MISSES'}</span></div></div>
       ${r.ghostLine ? `<div class="fact ghost"><b>GHOST</b>${r.ghostLine}</div>` : ''}
-      <div class="code"><small>POST YOUR RUN CODE UNDER THE SHORT</small>${r.code}</div>
-      <div class="btns">
-        <button class="b1 wide" id="rRetry">RETRY VS MY GHOST</button>
-        <button class="b2" id="rShare">SHARE CARD</button><button class="b2" id="rLink">CHALLENGE LINK</button>
+      ${r.free ? '' : `<div class="code"><small>POST YOUR RUN CODE UNDER THE SHORT</small>${r.code}</div>`}
+      <div class="btns main">
+        <button class="b1 wide" id="rRetry">${r.free ? 'DRIVE AGAIN' : 'RETRY VS MY GHOST'}</button>
+        <button class="b2" id="rShare">SHARE CARD</button><button class="b2" id="rLink">${r.free ? 'COPY RESULT' : 'CHALLENGE LINK'}</button>
         <a class="b3 wide" id="rWatch" target="_blank" rel="noopener">WATCH THE 40-SECOND SCIENCE</a>
       </div><div id="copied"></div>
-      <div class="fact"><b>THE SCIENCE BIT</b>${r.scn.fact}</div>
-      ${r.stats || r.eggs ? `<div class="eggs">${r.stats ? `${r.stats.newBest ? '<b>NEW BEST</b> · ' : ''}STREAK <b>${r.stats.streak}</b> · BEST <b>${r.stats.best.pct}% ${fmtTime(r.stats.best.time)}</b> · ` : ''}EGGS <b>${r.eggs.found}/${r.eggs.total}</b>${r.eggs.run ? ` (+${r.eggs.run})` : ''}</div>` : ''}
+      ${r.free ? '' : `<div class="fact"><b>THE SCIENCE BIT</b>${r.scn.fact}</div>`}
+      ${r.stats || r.eggs ? `<div class="eggs">${r.stats ? `${r.stats.newBest ? '<b>NEW BEST</b> · ' : ''}STREAK <b>${r.stats.streak}</b> · BEST <b>${r.stats.best.pct}% ${fmtTime(r.stats.best.time)}</b> · ` : ''}${r.style ? `STYLE <b>$${Math.round(r.style.run).toLocaleString('en-US')}</b> · BANK <b>$${Math.round(r.style.bank).toLocaleString('en-US')}</b> · ` : ''}EGGS <b>${r.eggs.found}/${r.eggs.total}</b>${r.eggs.run ? ` (+${r.eggs.run})` : ''}</div>` : ''}
       <div class="btns"><button class="b4" id="rClip">SAVE MY 10 S CLIP</button><a class="b4" id="rSub" target="_blank" rel="noopener">SUBSCRIBE</a></div>
       <div class="disc">${CONFIG.disclaimer}</div>`;
     this.routeMap($('rmap'), r.route, r.packets); this.show(false);   // the live HUD (timer, mission, radar) fades out behind the card
     $('rWatch').href = r.scn.scienceUrl || CONFIG.scienceFallbackUrl; $('rSub').href = CONFIG.subscribeUrl;
     const copy = async (txt, msg) => { try { await navigator.clipboard.writeText(txt); } catch { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); } $('copied').textContent = msg; };
     $('rShare').onclick = async () => { count('shares'); $('copied').textContent = 'Making your card...'; $('copied').textContent = await this.shareCard(r); };
-    $('rLink').onclick = () => { count('links'); copy(r.link, 'Challenge link copied.'); };
+    $('rLink').onclick = () => { count('links'); copy(r.free ? r.share : r.link, r.free ? 'Result copied.' : 'Challenge link copied.'); };
     $('rWatch').addEventListener('click', () => count('watch')); $('rSub').addEventListener('click', () => count('subs'));
     $('rRetry').onclick = handlers.retry;
     $('rClip').onclick = async () => { count('clips'); $('copied').textContent = 'Preparing the clip...'; $('copied').textContent = await handlers.clip(); };
