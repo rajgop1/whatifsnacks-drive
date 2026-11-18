@@ -217,7 +217,7 @@ function showSel() {
   }).catch((e) => console.error('mode preview', e));
 }
 // ---------------------------------------------------------------- modes: self-contained worlds (own scene) the title can start; see js/modes/README.md
-const MODE_SRC = { space: './modes/space.js', sub: './modes/sub.js' }, modeCache = {}, modeUI = document.getElementById('modeui');
+const MODE_SRC = { space: './modes/space.js', sub: './modes/sub.js', moon: './modes/moon.js' }, modeCache = {}, modeUI = document.getElementById('modeui');
 const modeCtx = (id) => ({ id, THREE, renderer, camera, input, audio, hud, makePost, count, isTouch, DAY, ui: modeUI, get tier() { return tier; }, get vehicle() { return sel; }, exit: () => exitMode(), labels: (l) => hud.labels(l) });
 function ensureMode(v) {
   if (!modeCache[v.mode]) modeCache[v.mode] = import(MODE_SRC[v.mode]).then(async (mod) => { const m = new mod.default(modeCtx(v.mode)); if (m.load) await m.load(); return m; });

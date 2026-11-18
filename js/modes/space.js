@@ -122,7 +122,8 @@ export default class SpaceMode {
   // ------------------------------------------------------------------------------------------------ title showroom: a 4.5 m STAR HOPPER on a tiny stand
   makePreview() {   // a small showroom model on a navy hover plinth: round, so the title camera's orbit frames it the same from every side.
     // The title camera and layout change with the screen shape, so the model sizes and lifts itself into the free band between the subtitle and the garage row.
-    const g = new THREE.Group(), inner = new THREE.Group(), r = M.makeRocket(); r.flameBig.visible = false; r.mat.color.setScalar(0.7); r.mat.emissive.setHex(0x000000);
+    const g = new THREE.Group(), inner = new THREE.Group(), r = M.makeRocket(); r.booster.remove(r.flameBig); r.upper.remove(r.flameSmall);   // no flames on the showroom model (they would also stretch its bounding box)
+    r.mat.color.setScalar(0.7); r.mat.emissive.setHex(0x000000);
     r.group.scale.setScalar(1 / 16.4); r.group.position.y = 0.09; r.group.rotation.y = 0.5; inner.add(r.group); g.add(inner);   // inner is 1 m tall (+ plinth) before fitting
     const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.26, 0.09, 32), new THREE.MeshStandardMaterial({ color: 0x1f2756, roughness: 0.6 })); plinth.position.y = 0.045; plinth.renderOrder = -1; inner.add(plinth);   // drawn first, so its fit (below) moves the rocket before the rocket draws
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.245, 0.01, 6, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.25, 0.4), toneMapped: false })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.09; inner.add(ring);
@@ -132,13 +133,15 @@ export default class SpaceMode {
     const v = new THREE.Vector3(), band = { key: '', t: 0, top: 0, bot: 0 }, cur = { lift: -1, h: 1 };
     const readBand = (H) => { const q = document.getElementById('tq'), h1 = document.querySelector('#title h1'), gr = document.getElementById('garage'); if (!h1 || !gr) return false;
       const qr = q && q.offsetHeight && q.textContent.trim() ? q.getBoundingClientRect() : null, top = (qr || h1.getBoundingClientRect()).bottom, bot = gr.getBoundingClientRect().top;
-      if (!(bot > top + 30)) return false; band.top = top + Math.min(8, (bot - top) * 0.04); band.bot = bot - Math.min(8, (bot - top) * 0.04); return H > 0; };
+      if (!(bot > top + 30)) return false; band.top = top + Math.min(14, (bot - top) * 0.06); band.bot = bot - Math.min(8, (bot - top) * 0.04); return H > 0; };
     plinth.onBeforeRender = (ren, sc, cam) => {
       const H = ren.domElement.clientHeight || innerHeight, W = ren.domElement.clientWidth || innerWidth, key = W + 'x' + H, now = performance.now();
       if (band.key !== key || now - band.t > 1000) { band.t = now; if (readBand(H)) band.key = key; else return; }
-      const x = g.matrixWorld.elements[12], z = g.matrixWorld.elements[14], py = (y) => (1 - (v.set(x, y, z).project(cam).y + 1) / 2) * H;
-      const solve = (px) => { let lo = -3, hi = 30; for (let i = 0; i < 26; i++) { const m = (lo + hi) / 2; if (py(m) > px) lo = m; else hi = m; } return (lo + hi) / 2; };
-      const y0 = Math.max(0, solve(band.bot)), y1 = solve(band.top), h = Math.min(4.6, Math.max(0.5, (y1 - y0) / 1.09));   // the inner model is 1.09 tall (plinth + rocket)
+      const x = g.matrixWorld.elements[12], z = g.matrixWorld.elements[14], cdx = cam.position.x - x, cdz = cam.position.z - z, cl = Math.hypot(cdx, cdz) || 1; let off = 0;
+      const py = (y) => (1 - (v.set(x + cdx / cl * off, y, z + cdz / cl * off).project(cam).y + 1) / 2) * H;   // off: the plinth's near rim (lowest on screen), not its centre
+      const ceil = cam.position.y - 0.15;   // search only below the camera: higher points can fall behind a steep title camera and project upside down
+      const solve = (px) => { let lo = -3, hi = Math.min(30, ceil); for (let i = 0; i < 26; i++) { const m = (lo + hi) / 2; if (py(m) > px) lo = m; else hi = m; } return (lo + hi) / 2; };
+      let y0 = 0, y1 = 0, h = 1; for (let it = 0; it < 3; it++) { off = 0.26 * h; y0 = Math.max(0, solve(band.bot)); off = 0; y1 = solve(band.top); h = Math.min(4.6, Math.max(0.25, (y1 - y0) / 1.09 * 0.96)); }   // the inner model is 1.09 tall (plinth + rocket)
       cur.lift = y0; cur.h = h; g.userData.fit = { top: band.top, bot: band.bot, y0, y1, h };   // the orbit is slow, so no smoothing is needed
       inner.position.y = Math.max(0, cur.lift); inner.scale.setScalar(cur.h); inner.updateMatrixWorld(true);
     };
