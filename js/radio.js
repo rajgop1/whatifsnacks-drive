@@ -37,13 +37,13 @@ const STATIONS = [
 export class Radio {
   constructor(audio, hud) {
     this.a = audio; this.hud = hud; this.step = 0; this.t = 0; this.timer = null; this.paused = false;
-    let i = 0; try { i = +localStorage.getItem(KEY) || 0; } catch (e) { /* private window */ }
+    let i = 0; try { i = Math.trunc(+localStorage.getItem(KEY)) || 0; } catch (e) { /* private window */ }
     this.off = i < 0; this.i = i >= 0 && i < STATIONS.length ? i : 0;
   }
   get station() { return STATIONS[this.i]; }
   start() { if (!this.a.ctx) return; this.bus = this.a.musicBus; this.apply(); }   // after audio.start()
   apply() {
-    const a = this.a, st = this.station; clearInterval(this.timer); this.timer = null;
+    const a = this.a, st = this.station; clearInterval(this.timer); this.timer = null; if (a.ctx) this.bus = a.musicBus;   // a mode's exit can call this before start()
     a.music = !this.off && !this.paused && st.id === 'synth';
     this.hud.radioBtn && this.hud.radioBtn(this.off ? 'OFF' : st.name);
     if (this.off || this.paused || !st.play || !a.ctx) return;

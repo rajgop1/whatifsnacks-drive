@@ -52,7 +52,10 @@ export function evaluate(run, saved, now = Date.now()) {
 }
 
 let mem = null;   // blocked storage (private window): badges last this page session instead of re-unlocking every run
-export function load() { if (mem) return { ...fresh(), ...mem }; try { return { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return fresh(); } }
+export function load() {
+  const clean = (o) => { const s = { ...fresh(), ...(o && typeof o === 'object' && !Array.isArray(o) ? o : {}) }; if (!Array.isArray(s.cars)) s.cars = []; if (!s.unlocked || typeof s.unlocked !== 'object') s.unlocked = {}; return s; };   // hand-edited storage never breaks a run
+  if (mem) return clean(mem); try { return clean(JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return fresh(); }
+}
 export function save(saved) { mem = saved; try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) { /* mem keeps it */ } }
 
 let css = false;

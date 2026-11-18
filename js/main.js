@@ -121,7 +121,7 @@ function updateRain(dt) {
 const hud = new Hud(), input = new Input(document.body), audio = new Audio(), clip = new Clip(canvasEl, audio), radio = new Radio(audio, hud);
 let style, police, city, car, traffic, packets, tornado, cubes, drones, fx, ghostMesh, post, peds, heli, eggs, arrow;
 let free = Q.get('free') === '1' || (!Q.has('free') && stored('wis-free') === '1');   // FREE ROAM: no timer, endless deliveries, random what-if events, you choose when to stop
-let paintIdx = Math.max(0, Math.min(PAINTS.length - 1, +stored('wis-paint') || 0)); if (PAINTS[paintIdx].cost > readBank()) paintIdx = 0;
+let paintIdx = Math.max(0, Math.min(PAINTS.length - 1, Math.trunc(+stored('wis-paint')) || 0)); if (PAINTS[paintIdx].cost > readBank()) paintIdx = 0;
 const paintOf = (v) => (PAINTS[paintIdx].c == null ? v.paint : PAINTS[paintIdx].c);
 let sel = vehicleById(Q.get('v') || stored('wis-vehicle')), mode = null, preview = null;   // sel: the garage choice (a car, or a mode vehicle); mode: the running mode world
 // the guide arrow: floats over the car and points at the next packet (sun fill, navy outline, drawn on top)
@@ -252,9 +252,11 @@ function tuneRadio() {   // the first tap starts the sound (browsers need a tap)
 }
 document.getElementById('gRadio').addEventListener('click', tuneRadio);
 document.getElementById('gPrev').addEventListener('click', () => pickCar(-1)); document.getElementById('gNext').addEventListener('click', () => pickCar(1));
-addEventListener('keydown', (e) => { if (e.code === 'KeyP' && !e.repeat) { if (photo) exitPhoto(); else enterPhoto(); } if (photo) { if (e.code === 'Escape') { exitPhoto(); return; } if (e.code === 'ArrowLeft' || e.code === 'KeyA') photo.a += 0.08; if (e.code === 'ArrowRight' || e.code === 'KeyD') photo.a -= 0.08; if (e.code === 'ArrowUp' || e.code === 'KeyW') photo.e = clamp(photo.e - 0.05, -0.05, 1.35); if (e.code === 'ArrowDown' || e.code === 'KeyS') photo.e = clamp(photo.e + 0.05, -0.05, 1.35); if (e.code === 'Enter') { snap(); return; } } if (e.code === 'KeyM' && !e.repeat && (R.state === 'title' || live() || R.state === 'done')) { if (R.state === 'title') tuneRadio(); else radio.next(); } if (e.code === 'KeyH' && !e.repeat && live()) audio.honk(); if (e.code === 'Escape') { if (mode) exitMode(); else if (R.free && live()) finish(); } if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); if (R.state === 'title' && !e.repeat) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') pickCar(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') pickCar(1); } });
+addEventListener('click', (e) => { const b = e.target && e.target.closest && e.target.closest('button'); if (b) b.blur(); }, true);
+addEventListener('keydown', (e) => { if (e.code === 'KeyP' && !e.repeat) { if (photo) exitPhoto(); else enterPhoto(); } if (photo) { if (e.code === 'Escape') { exitPhoto(); return; } if (e.code === 'ArrowLeft' || e.code === 'KeyA') photo.a += 0.08; if (e.code === 'ArrowRight' || e.code === 'KeyD') photo.a -= 0.08; if (e.code === 'ArrowUp' || e.code === 'KeyW') photo.e = clamp(photo.e - 0.05, -0.05, 1.35); if (e.code === 'ArrowDown' || e.code === 'KeyS') photo.e = clamp(photo.e + 0.05, -0.05, 1.35); if (e.code === 'Enter') { snap(); return; } } if (e.code === 'KeyM' && !e.repeat && (R.state === 'title' || live() || R.state === 'done')) { if (R.state === 'title') tuneRadio(); else radio.next(); } if (e.code === 'KeyH' && !e.repeat && live()) audio.honk(); if (e.code === 'Escape') { if (mode) exitMode(); else if (R.free && live()) finish(); } if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title') && !(e.target && e.target.tagName === 'BUTTON')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); if (R.state === 'title' && !e.repeat) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') pickCar(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') pickCar(1); } });
 const beats = (a, b) => !b || a.pct > b.pct || (a.pct === b.pct && a.time < b.time);   // more percent first, then faster
-function retry() { if (R.ownGhost && beats(R.ownGhost, R.ghost)) R.ghost = R.ownGhost; R.state = 'title'; turnKey(); }   // the ghost is the best run so far, never a worse retry
+function garage() { hud.hideResult(); if (!R.free && R.ownGhost && beats(R.ownGhost, R.ghost)) R.ghost = R.ownGhost; toTitle(); car.reset(L.SPAWN.x, L.SPAWN.z, L.SPAWN.yaw); showSel(); }   // the result card's CHANGE CAR button
+function retry() { if (!R.free && R.ownGhost && beats(R.ownGhost, R.ghost)) R.ghost = R.ownGhost; R.state = 'title'; turnKey(); }   // the ghost is the best run so far, never a worse retry
 const api = { hud, audio, get car() { return car; }, get traffic() { return traffic; }, get cubes() { return cubes; }, get tornado() { return tornado; }, R };   // what scenario hooks may touch
 
 function addChaos(v) { R.chaos = Math.min(5.99, R.chaos + v); }
@@ -306,7 +308,7 @@ function finish() {
   window.__oc.result = res;
   if (!CAPTURE) { try { award({ ...res, night: todTarget === 1, vehicle: sel.id, bestDrift: style.bestDrift }); } catch (e) { console.error('badges', e); } }
   const clipName = `what-if-snacks-drive-${pad3(DAY)}`;
-  setTimeout(() => { if (CAPTURE || R.state !== 'done') return; const done = clip.finish(); hud.result(res, { retry, clip: async () => { if (!clip.ok) return "This browser can't record clips. Try Chrome on Android or desktop."; await done; return clip.save(clipName); } }); }, 1400);   // the R-state guard: R pressed inside the 1.4 s window already started the next run, so no stale card
+  setTimeout(() => { if (CAPTURE || R.state !== 'done') return; const done = clip.finish(); hud.result(res, { retry, garage, clip: async () => { if (!clip.ok) return "This browser can't record clips. Try Chrome on Android or desktop."; await done; return clip.save(clipName); } }); }, 1400);   // the R-state guard: R pressed inside the 1.4 s window already started the next run, so no stale card
   if (R.free) hud.toast('PARKED', `${fmt$(style.run)} EARNED`, 2.5); else hud.toast(R.pct >= 100 ? '100%' : 'TIME', R.pct >= 100 ? 'DOWNLOAD COMPLETE' : `${R.pct}% DELIVERED`, 2.5);
 }
 
@@ -403,7 +405,7 @@ let photo = null;
 const pEl = (id) => document.getElementById(id);
 function enterPhoto() {
   if (photo || mode || !live()) return;
-  photo = { a: car.yaw + Math.PI + 0.5, e: 0.22, d: 8 * (car.v.show || 1), f: 0 }; document.body.classList.add('photo'); document.body.classList.remove('freerun'); setPhotoFilter(0); pEl('pMsg').textContent = '';
+  police.sirenOff(true); photo = { a: car.yaw + Math.PI + 0.5, e: 0.22, d: 8 * (car.v.show || 1), f: 0 }; document.body.classList.add('photo'); document.body.classList.remove('freerun'); setPhotoFilter(0); pEl('pMsg').textContent = '';
   count('photo-mode');
 }
 function exitPhoto() { if (!photo) return; photo = null; document.body.classList.remove('photo'); document.body.classList.toggle('freerun', !!R.free); canvasEl.style.filter = ''; }
@@ -496,7 +498,7 @@ function dropTier() {
 function render(dt) {
   renderer.info.reset();
   const time = R.sim;
-  if (mode) { mode.render(dt); hud.update(dt); audio.update(dt, car, { running: false, silent: true }); return; }
+  if (mode) { mode.render(dt); hud.update(dt); if (rainSnd && audio.ctx) rainSnd.g.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.2); audio.update(dt, car, { running: false, silent: true }); return; }
   if (tod !== todTarget || rain !== rainTarget) { tod = Math.abs(tod - todTarget) < 0.004 ? todTarget : damp(tod, todTarget, 2.2, dt); rain = Math.abs(rain - rainTarget) < 0.004 ? rainTarget : damp(rain, rainTarget, 1.6, dt); applyTod(); }
   if (stars && stars.visible) { stars.position.copy(camera.position); moonSpr.position.copy(camera.position).addScaledVector(MOON, 6200); }
   city.update(time, dt, { night: tod * 0.62, dusk: 0.35 * (1 - tod) + 0.12 * tod, wet: Math.max(R.env.grip < 1 ? 0.6 : 0, rain * 0.7), wind: tornado.active ? 1 : 0.2, cloudColor: CLOUD });

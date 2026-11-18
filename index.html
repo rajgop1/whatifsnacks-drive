@@ -182,7 +182,7 @@ html,body{max-width:100vw}
 @media (max-height:520px){#radio canvas{display:none}#radio{padding:5px 10px}#radio .who{display:none}#radio .say{font-size:12px}
 .inmode #topcol,.freerun #topcol{top:max(10px,var(--sa-top));left:calc(max(10px,var(--sa-left)) + 48px)}
 #card{display:flex;flex-direction:column}#card .day{order:-3}#card h2{order:-2}#card .btns.main,#card #copied{order:-1}}   /* landscape result card: the button to go again comes first */
-#btnPhoto{position:fixed;right:max(10px,var(--sa-right));top:calc(var(--hudb,150px) + 8px);z-index:5;display:none;width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,244,230,.7);background:rgba(20,26,58,.6);padding:0;cursor:pointer;pointer-events:auto}
+#btnPhoto{position:fixed;left:max(10px,var(--sa-left));top:calc(var(--hudb,150px) + 8px);z-index:5;display:none;width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,244,230,.7);background:rgba(20,26,58,.6);padding:0;cursor:pointer;pointer-events:auto}
 #btnPhoto svg{width:24px;height:24px;margin:8px;fill:none;stroke:var(--cream);stroke-width:1.8;stroke-linejoin:round}
 body.freerun:not(.photo):not(.inmode) #btnPhoto{display:block}
 #photoui{position:fixed;inset:0;z-index:7;display:none;pointer-events:none;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;padding:12px 12px max(14px,var(--sa-bottom))}

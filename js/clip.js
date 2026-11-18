@@ -49,7 +49,7 @@ export class Clip {
 // Real local numbers only: streak of days played, personal best per daily number, attempts today. Nothing is invented.
 const KEY = 'wis_drive_stats';
 export const Stats = {
-  load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } },
+  load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (!s || typeof s !== 'object' || Array.isArray(s)) return {}; if (!s.best || typeof s.best !== 'object' || Array.isArray(s.best)) delete s.best; if (!s.attempts || typeof s.attempts !== 'object') delete s.attempts; return s; } catch { return {}; } },   // hand-edited storage never breaks a run
   save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode: stats just don't persist */ } },
   attempt(today) { const s = this.load(); s.attempts = s.attempts && s.attempts.day === today ? { day: today, n: s.attempts.n + 1 } : { day: today, n: 1 }; this.save(s); return s; },
   // a run counts for the streak on the real calendar day it was played

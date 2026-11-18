@@ -67,7 +67,7 @@ export class Hud {
   timeBtn(i) { const b = $('btnTime'); b.textContent = 'LOOK: ' + ['GOLDEN HOUR', 'NIGHT', 'RAIN', 'STORM'][i]; b.classList.toggle('on', i > 0); }
   // the style chip: cash earned this run and the combo multiplier (hidden until the first dollar)
   style(run, combo, t) { const e = $('style'); e.classList.toggle('on', run > 0); $('sRun').textContent = '$' + Math.round(run).toLocaleString('en-US'); const c = $('sCombo'); c.textContent = combo > 1 ? `×${combo}` : ''; c.style.opacity = combo > 1 ? Math.min(1, t) : 0; }
-  paint(p, hex) { const b = $('gPaint'); b.style.display = p ? '' : 'none'; if (p) { b.style.setProperty('--pc', '#' + (hex >>> 0).toString(16).padStart(6, '0')); b.title = 'PAINT: ' + p.n; b.setAttribute('aria-label', 'Paint colour: ' + p.n); } }
+  paint(p, hex) { const b = $('gPaint'); b.style.visibility = p ? '' : 'hidden'; if (p) { b.style.setProperty('--pc', '#' + (hex >>> 0).toString(16).padStart(6, '0')); b.title = 'PAINT: ' + p.n; b.setAttribute('aria-label', 'Paint colour: ' + p.n); } }
   radioBtn(name) { const b = $('gRadio'); b.classList.toggle('off', name === 'OFF'); b.title = 'RADIO: ' + name; b.setAttribute('aria-label', 'Radio: ' + name); }
   meterN(n) { $('blabel').textContent = 'DELIVERIES'; $('bpct').textContent = String(n); $('fill').style.width = ((n % 5) / 5 * 100) + '%'; }   // free roam: a count, the bar fills toward every fifth
   freeBtn(on) { const b = $('btnFree'); b.textContent = on ? 'MODE: FREE ROAM' : 'MODE: DAILY RUN'; b.classList.toggle('on', on); }
@@ -189,7 +189,7 @@ export class Hud {
       </div><div id="copied"></div>
       ${r.free ? '' : `<div class="fact"><b>THE SCIENCE BIT</b>${r.scn.fact}</div>`}
       ${r.stats || r.eggs ? `<div class="eggs">${r.stats ? `${r.stats.newBest ? '<b>NEW BEST</b> · ' : ''}STREAK <b>${r.stats.streak}</b> · BEST <b>${r.stats.best.pct}% ${fmtTime(r.stats.best.time)}</b> · ` : ''}${r.style ? `STYLE <b>$${Math.round(r.style.run).toLocaleString('en-US')}</b> · BANK <b>$${Math.round(r.style.bank).toLocaleString('en-US')}</b> · ` : ''}EGGS <b>${r.eggs.found}/${r.eggs.total}</b>${r.eggs.run ? ` (+${r.eggs.run})` : ''}</div>` : ''}
-      <div class="btns"><button class="b4" id="rClip">SAVE MY 10 S CLIP</button><a class="b4" id="rSub" target="_blank" rel="noopener">SUBSCRIBE</a></div>
+      <div class="btns"><button class="b4" id="rClip">SAVE MY 10 S CLIP</button><a class="b4" id="rSub" target="_blank" rel="noopener">SUBSCRIBE</a><button class="b4 wide" id="rGarage">CHANGE CAR OR MODE</button></div>
       <div class="disc">${CONFIG.disclaimer}</div>`;
     this.routeMap($('rmap'), r.route, r.packets); this.show(false);   // the live HUD (timer, mission, radar) fades out behind the card
     $('rWatch').href = r.scn.scienceUrl || CONFIG.scienceFallbackUrl; $('rSub').href = CONFIG.subscribeUrl;
@@ -197,7 +197,7 @@ export class Hud {
     $('rShare').onclick = async () => { count('shares'); $('copied').textContent = 'Making your card...'; $('copied').textContent = await this.shareCard(r); };
     $('rLink').onclick = () => { count('links'); copy(r.free ? r.share : r.link, r.free ? 'Result copied.' : 'Challenge link copied.'); };
     $('rWatch').addEventListener('click', () => count('watch')); $('rSub').addEventListener('click', () => count('subs'));
-    $('rRetry').onclick = handlers.retry;
+    $('rRetry').onclick = handlers.retry; $('rGarage').onclick = handlers.garage;
     $('rClip').onclick = async () => { count('clips'); $('copied').textContent = 'Preparing the clip...'; $('copied').textContent = await handlers.clip(); };
     $('result').classList.remove('hide');
   }
