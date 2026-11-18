@@ -46,11 +46,11 @@ this.buzz = c.createOscillator(); this.buzz.type = 'sawtooth'; this.buzz.frequen
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); s.connect(fl); fl.connect(g); g.connect(bus); s.start(t, Math.random()); s.stop(t + dur + 0.05);
   }
   // per frame
-  update(dt, car, { tornadoDist = 1e9, droneDist = 1e9, heliDist = 1e9, running = true } = {}) {
+  update(dt, car, { tornadoDist = 1e9, droneDist = 1e9, heliDist = 1e9, running = true, silent = false } = {}) {
     if (!this.ctx) return; const c = this.ctx, t = c.currentTime;
-    const rpm = Math.min(1, Math.abs(car.vf) / 46), gear = (rpm * 4.2) % 1, f = 38 + 70 * rpm + 55 * gear + (car.air ? 40 : 0);
+    const E = car.v.engine || {}, rpm = Math.min(1, Math.abs(car.vf) / (car.P && car.P.vmax || 46)), gear = (rpm * 4.2) % 1, f = (E.base ?? 38) + (E.range ?? 70) * rpm + (E.gear ?? 55) * gear + (car.air ? 40 : 0);
     this.o1.frequency.setTargetAtTime(f, t, 0.05); this.o2.frequency.setTargetAtTime(f * 0.5, t, 0.05); this.elp.frequency.setTargetAtTime(500 + 2400 * rpm, t, 0.08);
-    this.eg.gain.setTargetAtTime(running ? 0.09 + 0.08 * rpm : 0.05, t, 0.1);
+    this.eg.gain.setTargetAtTime(silent ? 0 : running ? 0.09 + 0.08 * rpm : 0.05, t, 0.1);
     this.wind.g.gain.setTargetAtTime(Math.max(0, 1 - tornadoDist / 140) * 0.55, t, 0.2); this.wind.fl.frequency.setTargetAtTime(300 + Math.max(0, 1 - tornadoDist / 140) * 700, t, 0.2);
     this.buzzG.gain.setTargetAtTime(Math.max(0, 1 - droneDist / 60) * 0.06, t, 0.1);
     // tyre squeal while sliding, and wind rush that rises with speed

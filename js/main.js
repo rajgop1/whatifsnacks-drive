@@ -23,6 +23,7 @@ import { Clip, Stats } from './clip.js';
 import { count, countOnce } from './counter.js';
 import { Radio } from './radio.js';
 import { award } from './badges.js';
+import { Police } from './police.js';
 import { Style, fmt$, bank as readBank, PAINTS } from './style.js';
 
 const Q = new URLSearchParams(location.search), H = new URLSearchParams(location.hash.slice(1));
@@ -118,7 +119,7 @@ function updateRain(dt) {
 
 // ---------------------------------------------------------------- world and actors
 const hud = new Hud(), input = new Input(document.body), audio = new Audio(), clip = new Clip(canvasEl, audio), radio = new Radio(audio, hud);
-let style, city, car, traffic, packets, tornado, cubes, drones, fx, ghostMesh, post, peds, heli, eggs, arrow;
+let style, police, city, car, traffic, packets, tornado, cubes, drones, fx, ghostMesh, post, peds, heli, eggs, arrow;
 let free = Q.get('free') === '1' || (!Q.has('free') && stored('wis-free') === '1');   // FREE ROAM: no timer, endless deliveries, random what-if events, you choose when to stop
 let paintIdx = Math.max(0, Math.min(PAINTS.length - 1, +stored('wis-paint') || 0)); if (PAINTS[paintIdx].cost > readBank()) paintIdx = 0;
 const paintOf = (v) => (PAINTS[paintIdx].c == null ? v.paint : PAINTS[paintIdx].c);
@@ -135,7 +136,7 @@ async function boot() {
   progress(0.1); await nextFrame();
   city = buildCity(scene, tier, (p) => progress(0.1 + p * 0.7)); progress(0.82); await nextFrame();
   car = new Car(scene, { quality: tier, vehicle: carById(sel.id), paint: paintOf(carById(sel.id)) }); fx = new Particles(scene); hud.garage(sel); showSel();
-  traffic = new Traffic(scene, tier === 'high' ? 34 : tier === 'medium' ? 26 : 16, DAY);
+  traffic = new Traffic(scene, tier === 'high' ? 34 : tier === 'medium' ? 26 : 16, DAY); police = new Police(scene, tier, audio);
   arrow = makeArrow();
   packets = new Packets(scene); tornado = new Tornado(scene); cubes = new Cubes(scene); drones = new Drones(scene); ghostMesh = ghostCar(scene);
   peds = new Peds(scene, tier === 'high' ? 60 : tier === 'medium' ? 42 : 24, DAY); heli = new Heli(scene); eggs = new Eggs(scene); traffic.onHonk = () => audio.honk(); traffic.onNear = () => nearMiss('NEAR MISS');
@@ -177,7 +178,7 @@ function resetRun() {
   car.reset(L.SPAWN.x, L.SPAWN.z, L.SPAWN.yaw); packets.set(R.route.packets); tornado.hide(); cubes.clear(); drones.setCount(0, car);
   Object.assign(R, { t: 0, near: 0, goalShown: false, launched: false, stuckT: 0, timerOn: false, timerT: 0, pct: SCN.startPct, got: 0, chaos: 0, pips: 0, maxPips: 0, env: { g: 9.8, grip: 1 }, rec: [], recT: 0, ap: { idx: 0, t: 0 }, gravityUntil: -1, slickUntil: -1, lastImpact: 0 });
   R.events = SCN.events.map((e) => ({ ...e, fired: false })); input.any = false;
-  R.free = free; R.nextEv = 26; document.body.classList.toggle('freerun', free);
+  police.reset(); R.free = free; R.nextEv = 26; document.body.classList.toggle('freerun', free);
   if (free) { R.events = []; packets.set(freePackets(4)); hud.meterN(0); } eggs.reset(); style.reset(); city.roadMat.userData.wet = 0;
 }
 function turnKey() {
@@ -251,7 +252,7 @@ function tuneRadio() {   // the first tap starts the sound (browsers need a tap)
 }
 document.getElementById('gRadio').addEventListener('click', tuneRadio);
 document.getElementById('gPrev').addEventListener('click', () => pickCar(-1)); document.getElementById('gNext').addEventListener('click', () => pickCar(1));
-addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && (R.state === 'title' || live() || R.state === 'done')) { if (R.state === 'title') tuneRadio(); else radio.next(); } if (e.code === 'KeyH' && !e.repeat && live()) audio.honk(); if (e.code === 'Escape') { if (mode) exitMode(); else if (R.free && live()) finish(); } if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); if (R.state === 'title' && !e.repeat) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') pickCar(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') pickCar(1); } });
+addEventListener('keydown', (e) => { if (e.code === 'KeyP' && !e.repeat) { if (photo) exitPhoto(); else enterPhoto(); } if (photo) { if (e.code === 'Escape') { exitPhoto(); return; } if (e.code === 'ArrowLeft' || e.code === 'KeyA') photo.a += 0.08; if (e.code === 'ArrowRight' || e.code === 'KeyD') photo.a -= 0.08; if (e.code === 'ArrowUp' || e.code === 'KeyW') photo.e = clamp(photo.e - 0.05, -0.05, 1.35); if (e.code === 'ArrowDown' || e.code === 'KeyS') photo.e = clamp(photo.e + 0.05, -0.05, 1.35); if (e.code === 'Enter') { snap(); return; } } if (e.code === 'KeyM' && !e.repeat && (R.state === 'title' || live() || R.state === 'done')) { if (R.state === 'title') tuneRadio(); else radio.next(); } if (e.code === 'KeyH' && !e.repeat && live()) audio.honk(); if (e.code === 'Escape') { if (mode) exitMode(); else if (R.free && live()) finish(); } if ((e.code === 'Enter' || e.code === 'Space') && (R.state === 'title')) turnKey(); if (e.code === 'KeyR' && R.state === 'done') retry(); if (R.state === 'title' && !e.repeat) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') pickCar(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') pickCar(1); } });
 const beats = (a, b) => !b || a.pct > b.pct || (a.pct === b.pct && a.time < b.time);   // more percent first, then faster
 function retry() { if (R.ownGhost && beats(R.ownGhost, R.ghost)) R.ghost = R.ownGhost; R.state = 'title'; turnKey(); }   // the ghost is the best run so far, never a worse retry
 const api = { hud, audio, get car() { return car; }, get traffic() { return traffic; }, get cubes() { return cubes; }, get tornado() { return tornado; }, R };   // what scenario hooks may touch
@@ -291,7 +292,7 @@ function fire(e) {
   audio.alarm();
 }
 function finish() {
-  R.state = 'done'; R.endT = R.t; document.body.classList.remove('freerun'); audio.finish(R.free ? true : R.pct >= 100); count(R.free ? 'free-done' : 'done'); if (!R.free && R.pct >= 100) count('wins');
+  exitPhoto(); R.state = 'done'; R.endT = R.t; document.body.classList.remove('freerun'); audio.finish(R.free ? true : R.pct >= 100); count(R.free ? 'free-done' : 'done'); if (!R.free && R.pct >= 100) count('wins');
   const ghost = encodeGhost(DAY, R.t, R.pct, R.maxPips, R.rec);
   R.ownGhost = decodeGhost(ghost);
   const link = challengeLink(DAY, ghost), code = commentCode(DAY, R.t, R.pct, R.maxPips, ghost);
@@ -316,6 +317,7 @@ let hidden = false;
 function step(dt) {
   R.sim += dt; input.poll();
   if (mode) { mode.step(dt); return; }
+  if (photo) return;   // photo mode freezes the world; the camera is free
   ctl.steer = 0; ctl.throttle = 0; ctl.brake = 0; ctl.handbrake = false; ctl.boost = false;
   if (R.state === 'intro' || R.state === 'live') {
     R.t += dt; R.ap.t = R.t;
@@ -328,7 +330,7 @@ function step(dt) {
     if (ctl.launch) { ctl.throttle = 1; if (!R.launched) { R.launched = true; audio.launch(); cam.pull = 1; cam.kick = 0.8; } }
     if (R.state === 'intro' && R.t >= 3) { R.state = 'live'; if (!input.any && !CAPTURE) hud.hint(true); }
     if (R.t > 0.5 && !R.goalShown) { R.goalShown = true; hud.toast(R.free ? 'DELIVER SNACKS' : `GRAB ${packets.list.length} PACKETS`, 'FOLLOW THE ARROW', 2.4); }
-    if (R.t > 1 && R.t < 1.1 && !R.saidRadio) { R.saidRadio = true; const line = R.free ? 'No clock today. Grab the snacks, drift for cash, and see what the weather does.' : SCN.radio; hud.radio(line, 3.4); audio.voice(line); }
+    if (R.t > 1 && R.t < 1.1 && !R.saidRadio) { R.saidRadio = true; const line = R.free ? 'No clock today. Grab the snacks, drift for cash, and keep it classy. Too much chaos and the Snack Patrol shows up.' : SCN.radio; hud.radio(line, 3.4); audio.voice(line); }
     if (R.t > 6 || input.any) hud.hint(false);
     if (!R.timerOn && (R.free ? R.t >= 6 : (R.got >= 3 || R.t >= 10))) startTimer();
     if (R.timerOn) {
@@ -356,6 +358,7 @@ function step(dt) {
   }
   R.lastImpact = car.impact; style.update(dt, car, R.state === 'live');
   traffic.update(dt, R.sim, car, tornado.active ? tornado : null, fx, (v) => { if (live()) { addChaos(0.45); audio.crash(v); crashPop(v, 'RAMMED!'); } });
+  if (R.free && R.state === 'live') police.update(dt, R.sim, car, R.chaos, fx, PCB, traffic); else if (police.chasing) police.reset();   // SNACK PATROL: free roam only
   if (R.state !== 'title') packets.update(dt, R.sim, car, collect); else packets.update(dt, R.sim, { x: 1e9, z: 1e9, y: 0 }, () => {});
   tornado.update(dt, R.sim, car, fx);
   cubes.update(dt, R.sim, R.env, car, traffic, fx, (v) => { if (R.state === 'live') addChaos(v > 8 ? 0.3 : 0.12); audio.thud(); });
@@ -367,7 +370,7 @@ function step(dt) {
   // stuck (after a tornado drop, against a wall, boxed in by cubes): after 1.2 s a poof clears the cubes around you;
   // if you're off the road or nothing was blocking you, the poof also puts you back on the last good road spot
   const waiting = AUTO ? R.ap.waiting : input.brake > 0;
-  if (R.state === 'live' && car.speed < 1.2 && !car.air && !waiting) {
+  if (R.state === 'live' && car.speed < 1.2 && !car.air && !waiting && !police.holding) {
     R.stuckT += dt;
     if (R.stuckT > 1.2) { R.stuckT = 0; poof(car.x, car.z);
       const cleared = cubes.clearNear(car.x, car.z, 16, fx);
@@ -394,11 +397,48 @@ function thinClear(x, z, dx, dz, dist) {
   return best;
 }
 const _v = new THREE.Vector3(), _q2 = new THREE.Quaternion();
+// ---------------------------------------------------------------- photo mode (P or the camera button): the world freezes, drag to orbit, a filter, SNAP saves a PNG
+const PF = [['NORMAL', ''], ['VICE', 'saturate(1.4) hue-rotate(-14deg) contrast(1.08) brightness(1.03)'], ['NOIR', 'grayscale(1) contrast(1.1) brightness(1.15)'], ['FILM', 'sepia(.35) saturate(1.15) contrast(1.06)']];
+let photo = null;
+const pEl = (id) => document.getElementById(id);
+function enterPhoto() {
+  if (photo || mode || !live()) return;
+  photo = { a: car.yaw + Math.PI + 0.5, e: 0.22, d: 8 * (car.v.show || 1), f: 0 }; document.body.classList.add('photo'); document.body.classList.remove('freerun'); setPhotoFilter(0); pEl('pMsg').textContent = '';
+  count('photo-mode');
+}
+function exitPhoto() { if (!photo) return; photo = null; document.body.classList.remove('photo'); document.body.classList.toggle('freerun', !!R.free); canvasEl.style.filter = ''; }
+function setPhotoFilter(i) { photo.f = i; canvasEl.style.filter = PF[i][1]; pEl('pFilter').textContent = 'FILTER: ' + PF[i][0]; }
+async function snap() {
+  if (!photo) return;
+  post.render(); const w = canvasEl.width, h = canvasEl.height, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  try { if ('filter' in g) g.filter = PF[photo.f][1] || 'none'; } catch (e) { /* no canvas filters (older Safari): saved unfiltered */ }
+  g.drawImage(canvasEl, 0, 0); try { g.filter = 'none'; } catch (e) { /* same */ }
+  const fs = Math.round(Math.min(w, h) * 0.03); g.font = `900 ${fs}px Montserrat, Arial, sans-serif`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.lineJoin = 'round'; g.lineWidth = fs * 0.28; g.strokeStyle = 'rgba(20,26,58,.85)'; g.fillStyle = '#fff4e6';
+  const tx = w - fs, ty = h - fs; g.strokeText('WHAT IF SNACKS: DRIVE', tx, ty); g.fillText('WHAT IF SNACKS: DRIVE', tx, ty);
+  const blob = await new Promise((ok) => c.toBlob(ok, 'image/png')); const f = pEl('pFlash'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 90); audio.chime && audio.chime(7);
+  if (!blob) { pEl('pMsg').textContent = 'COULD NOT SAVE'; return; }
+  count('photos'); const file = new File([blob], 'what-if-snacks-drive.png', { type: 'image/png' });
+  try { if (input.isTouch && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: 'What if 50 million people hit download? whatifsnacks.online' }); pEl('pMsg').textContent = 'SHARED'; return; } } catch (e) { /* cancelled: fall through to a download */ }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'what-if-snacks-drive.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); pEl('pMsg').textContent = 'PHOTO SAVED';
+}
+pEl('btnPhoto').addEventListener('click', enterPhoto); pEl('pDone').addEventListener('click', exitPhoto); pEl('pSnap').addEventListener('click', snap);
+pEl('pFilter').addEventListener('click', () => setPhotoFilter((photo.f + 1) % PF.length)); pEl('pIn').addEventListener('click', () => { photo.d = Math.max(3, photo.d * 0.85); }); pEl('pOut').addEventListener('click', () => { photo.d = Math.min(40, photo.d / 0.85); });
+{ let drag = null; const pr = new Map();
+  canvasEl.addEventListener('pointerdown', (e) => { if (!photo) return; pr.set(e.pointerId, [e.clientX, e.clientY]); drag = pr.size === 2 ? Math.hypot(...[...pr.values()].reduce((p, q) => [p[0] - q[0], p[1] - q[1]])) : null; canvasEl.setPointerCapture(e.pointerId); });
+  canvasEl.addEventListener('pointermove', (e) => { if (!photo || !pr.has(e.pointerId)) return; const o = pr.get(e.pointerId); pr.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pr.size === 2) { const d = Math.hypot(...[...pr.values()].reduce((p, q) => [p[0] - q[0], p[1] - q[1]])); if (drag) photo.d = clamp(photo.d * drag / d, 3, 40); drag = d; }
+    else { photo.a -= (e.clientX - o[0]) * 0.008; photo.e = clamp(photo.e + (e.clientY - o[1]) * 0.006, -0.05, 1.35); } });
+  const up = (e) => { pr.delete(e.pointerId); drag = null; }; canvasEl.addEventListener('pointerup', up); canvasEl.addEventListener('pointercancel', up);
+  canvasEl.addEventListener('wheel', (e) => { if (photo) { photo.d = clamp(photo.d * Math.exp(e.deltaY * 0.001), 3, 40); e.preventDefault(); } }, { passive: false }); }
 function updateCamera(dt, time) {
+  if (photo) {
+    const ce = Math.cos(photo.e), tx = car.x + Math.sin(photo.a) * ce * photo.d, tz = car.z + Math.cos(photo.a) * ce * photo.d, ty = Math.max(0.5, car.y + 1.1 + Math.sin(photo.e) * photo.d);
+    camera.position.set(tx, ty, tz); camera.lookAt(car.x, car.y + 1.0, car.z); camera.fov = 50; camera.updateProjectionMatrix(); arrow.visible = false; return;
+  }
   const portrait = camera.aspect < 0.8, speed = car.speed;
   if (R.state === 'title') {
     // the showroom shot: a slow orbit round the car, held in the band between the title text and the garage buttons
-    cam.orbit += dt * 0.15; const a = L.SPAWN.yaw + 0.75 + 0.7 * Math.sin(cam.orbit), dist = portrait ? 12.5 : 7.2;
+    cam.orbit += dt * 0.15; const a = L.SPAWN.yaw + 0.75 + 0.7 * Math.sin(cam.orbit), dist = (portrait ? 12.5 : 7.2) * (car.v.show || 1);
     const tx = car.x + Math.sin(a) * dist, tz = car.z + Math.cos(a) * dist;
     cam.x = damp(cam.x, tx, 2, dt); cam.z = damp(cam.z, tz, 2, dt); cam.y = damp(cam.y, 1.7, 2, dt);
     cam.lx = car.x; cam.ly = car.y + (portrait ? 0.25 : 0.55); cam.lz = car.z;
@@ -456,7 +496,7 @@ function dropTier() {
 function render(dt) {
   renderer.info.reset();
   const time = R.sim;
-  if (mode) { mode.render(dt); hud.update(dt); audio.update(dt, car, { running: false }); return; }
+  if (mode) { mode.render(dt); hud.update(dt); audio.update(dt, car, { running: false, silent: true }); return; }
   if (tod !== todTarget || rain !== rainTarget) { tod = Math.abs(tod - todTarget) < 0.004 ? todTarget : damp(tod, todTarget, 2.2, dt); rain = Math.abs(rain - rainTarget) < 0.004 ? rainTarget : damp(rain, rainTarget, 1.6, dt); applyTod(); }
   if (stars && stars.visible) { stars.position.copy(camera.position); moonSpr.position.copy(camera.position).addScaledVector(MOON, 6200); }
   city.update(time, dt, { night: tod * 0.62, dusk: 0.35 * (1 - tod) + 0.12 * tod, wet: Math.max(R.env.grip < 1 ? 0.6 : 0, rain * 0.7), wind: tornado.active ? 1 : 0.2, cloudColor: CLOUD });
@@ -473,6 +513,7 @@ function render(dt) {
     for (const d of drones.list) if (d.on) blips.push({ x: d.x, z: d.z, kind: 'drone' });
     if (gh) blips.push({ x: gpos[0], z: gpos[1], kind: 'ghost' });
     if (heli.on) blips.push({ x: heli.x, z: heli.z, kind: 'heli' });
+    for (const c of police.cruisers) blips.push({ x: c.x, z: c.z, kind: 'drone' });
     hud.drawRadar(car, blips, time);
   }
   hud.update(dt);
@@ -486,6 +527,8 @@ function render(dt) {
   post.render();
 }
 const BLIPS = [];
+// police callbacks: a bust takes a fine off the run's style cash and clears the heat; escaping clears it too
+const PCB = { onBust: (fine) => { style.run = Math.max(0, style.run - fine); R.chaos = 0; count('police-bust'); audio.thud(); }, onShove: (v) => { audio.thud(); crashPop(v, 'BONK!'); }, onLost: () => { R.chaos = 0; count('police-lost'); audio.chime(9); }, onSpawn: () => audio.alarm(), toast: (a, b) => hud.toast(a, b, 1.8) };
 
 let last = 0, acc = 0, frames = 0, fpsT = 0, fps = 0;
 function loop(now) {
@@ -508,7 +551,7 @@ document.addEventListener('visibilitychange', () => { hidden = document.hidden; 
 window.__oc = {
   setNight: (n, now) => { setLook(n ? 1 : 0); if (now) { tod = todTarget; rain = rainTarget; applyTod(); } }, setLook: (i, now) => { setLook(i); if (now) { tod = todTarget; rain = rainTarget; applyTod(); } }, get tod() { return tod; }, get rain() { return rain; },
   ready: false, fps: 0, get tier() { return tier; }, get mode() { return mode; }, get sel() { return sel; }, THREE, get scene() { return scene; }, get state() { return R.state; }, get R() { return R; }, get car() { return car; },
-  key: turnKey, retry, pick: pickCar, get audio() { return audio; }, get heli() { return heli; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
+  key: turnKey, retry, pick: pickCar, get audio() { return audio; }, get heli() { return heli; }, get police() { return police; }, get traffic() { return traffic; }, get packets() { return packets; }, mem: () => ({ geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), get camera() { return camera; }, card: () => hud.cardImage(window.__oc.result).toDataURL('image/png'),
   advance(dt) { const n = Math.max(1, Math.round(dt * 60)); for (let i = 0; i < n; i++) step(1 / 60); render(dt); return R.state; },
   stats: () => ({ fps, ema, cpuStep: +cpu.step.toFixed(2), cpuRender: +cpu.render.toFixed(2), scale, tier, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, state: R.state, pct: R.pct, pips: R.pips, t: R.t, x: car.x, z: car.z, speed: car.speed }),
 };

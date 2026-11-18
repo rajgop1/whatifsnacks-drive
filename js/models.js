@@ -23,25 +23,53 @@ const extrudeSide = (pts, width, bevel = 0.06) => {
   return g;
 };
 
-// ---------------------------------------------------------------- cars (forward = +z, ground at y = 0, 4.6 m long)
-// Side profile of our coupe (z forward, y up): low nose, long hood, fastback roof, ducktail.
-const BODY = [[-2.3, 0.36], [-2.36, 0.56], [-2.34, 0.78], [-2.18, 0.88], [-1.75, 0.93], [-1.42, 0.97], [-1.0, 1.2], [-0.62, 1.33], [-0.2, 1.37], [0.3, 1.35], [0.62, 1.22], [1.02, 0.97], [1.55, 0.88], [2.05, 0.8], [2.3, 0.68], [2.4, 0.5], [2.36, 0.36]];
-const GLASS = [[-1.47, 0.96], [-1.0, 1.24], [-0.62, 1.37], [-0.2, 1.41], [0.3, 1.39], [0.65, 1.25], [1.07, 0.96]];
-export function carGeometry({ police = false, taxi = false, wheels = true } = {}) {
-  const paint = taxi ? 0xffc52e : 0xffffff, dark = 0x17161e, trim = 0x2a2834, chrome = 0xc8ccd8, parts = [];
-  parts.push([extrudeSide(BODY, 1.9, 0.12), paint]);
-  parts.push([extrudeSide(GLASS, 1.84, 0.05), 0x10141f]);
-  parts.push([new THREE.BoxGeometry(1.5, 0.05, 0.75), paint, M4(0, 1.405, -0.18)]);                                      // roof skin over the glass
+// ---------------------------------------------------------------- cars (forward = +z, ground at y = 0)
+// Shared car-building helpers. A greenhouse (cabin) is a tinted glass solid on top of the lower body, framed by pillar struts with a roof skin, so the
+// mascot driver shows through the side windows. glass:false leaves the glass out of the body so the player car can draw it with a see-through material.
+const GLASS_C = 0x1c2a44, GLINT = 0xcfdcf5, DARK = 0x17161e, TRIM = 0x2a2834, CHROME = 0xc8ccd8;
+// a box strut along the side-profile segment a -> b ([z, y]) at x; off pushes it out along the segment's outward normal, k shortens it about the middle
+const strut = (a, b, x, w, t, color, off = 0, k = 1) => {
+  const dz = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dz, dy), nz = -dy / L, ny = dz / L;
+  return [new THREE.BoxGeometry(w, t, L * k), color, M4(x, (a[1] + b[1]) / 2 + ny * off, (a[0] + b[0]) / 2 + nz * off, -Math.atan2(dy, dz), 0, 0)];
+};
+// prof runs rear base -> over the roof -> front base. Glints: two light stripes on the windscreen and rear window, and diagonal streaks on the side glass.
+function greenhouse(parts, glassParts, { prof, w, frame, roof, roofW, roofC, side = [], pillars = [] }) {
+  glassParts.push([extrudeSide(prof, w, 0.04), GLASS_C]);
+  const n = prof.length, hw = w / 2;
   for (const s of [-1, 1]) {
-    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.955, 0.38, 1.42, 0, 0, Math.PI / 2)]);   // arches
-    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.955, 0.38, -1.42, 0, 0, Math.PI / 2)]);
+    for (let i = 0; i < n - 1; i++) parts.push(strut(prof[i], prof[i + 1], s * (hw + 0.004), 0.05, 0.07, frame, 0.02));
+    for (const [z, y0, y1] of pillars) parts.push([new THREE.BoxGeometry(0.05, y1 - y0, 0.08), frame, M4(s * (hw + 0.004), (y0 + y1) / 2, z)]);
+    for (const [z, y, l] of side) { glassParts.push([new THREE.BoxGeometry(0.012, 0.05, l), GLINT, M4(s * (hw + 0.002), y, z, 0.95, 0, 0)]); glassParts.push([new THREE.BoxGeometry(0.012, 0.025, l * 0.7), GLINT, M4(s * (hw + 0.002), y + 0.03, z + 0.12, 0.95, 0, 0)]); }
+  }
+  for (const [a, b] of [[prof[n - 2], prof[n - 1]], [prof[0], prof[1]]]) for (const [x, ww] of [[hw * 0.3, 0.08], [hw * 0.5, 0.035]]) glassParts.push(strut(a, b, x, ww, 0.012, GLINT, 0.045, 0.62));
+  if (roof) parts.push([extrudeSide(roof, roofW, 0.04), roofC]);
+}
+// wheel arch: a dark liner disc just inside the tyre face, and a lip round it (paint or black plastic)
+function arch(parts, x, z, r, lip, tube = 0.045) {
+  const s = Math.sign(x);
+  parts.push([new THREE.CylinderGeometry(r + 0.09, r + 0.09, 0.03, 22, 1, false, 0, Math.PI), 0x0d0c12, M4(x, r, z, 0, 0, Math.PI / 2)]);
+  parts.push([new THREE.TorusGeometry(r + 0.1, tube, 6, 20, Math.PI), lip, M4(x + s * 0.005, r, z, 0, Math.PI / 2, 0)]);
+}
+const side = (geo, x) => geo.translate(x, 0, 0);   // an extrudeSide slab moved out to one flank
+
+// Side profile of our coupe (z forward, y up): low nose, long hood, ducktail. The cabin is a separate greenhouse.
+const BODY = [[-2.3, 0.36], [-2.36, 0.56], [-2.34, 0.78], [-2.18, 0.88], [-1.75, 0.93], [-1.42, 0.97], [1.02, 0.97], [1.55, 0.88], [2.05, 0.8], [2.3, 0.68], [2.4, 0.5], [2.36, 0.36]];
+const GLASS = [[-1.47, 0.96], [-1.0, 1.24], [-0.62, 1.37], [-0.2, 1.41], [0.3, 1.39], [0.65, 1.25], [1.07, 0.96]];
+const ROOF = [[-0.74, 1.3], [-0.62, 1.38], [-0.2, 1.43], [0.3, 1.41], [0.52, 1.32]];
+export function carGeometry({ police = false, taxi = false, wheels = true, glass = true } = {}) {
+  const paint = taxi ? 0xffc52e : 0xffffff, dark = DARK, trim = TRIM, chrome = CHROME, parts = [], glassParts = [];
+  parts.push([extrudeSide(BODY, 1.9, 0.12), paint]);
+  greenhouse(parts, glassParts, { prof: GLASS, w: 1.66, frame: trim, roof: ROOF, roofW: 1.72, roofC: paint, pillars: [[-0.12, 1.0, 1.42]], side: [[0.25, 1.17, 0.42], [-0.75, 1.13, 0.36]] });
+  for (const s of [-1, 1]) {
+    arch(parts, s * 0.955, 1.42, 0.37, paint, 0.035); arch(parts, s * 0.955, -1.42, 0.37, paint, 0.035);
     parts.push([new THREE.BoxGeometry(0.06, 0.12, 1.9), dark, M4(s * 0.93, 0.36, 0)]);                                  // side skirt
     parts.push([new THREE.BoxGeometry(0.03, 0.035, 1.9), chrome, M4(s * 0.935, 0.975, -0.2)]);                         // belt-line chrome
-    parts.push([new THREE.BoxGeometry(0.02, 0.5, 0.025), trim, M4(s * 0.945, 0.72, 0.98)]);                            // door shut lines
-    parts.push([new THREE.BoxGeometry(0.02, 0.48, 0.025), trim, M4(s * 0.945, 0.72, -0.72)]);
-    parts.push([new THREE.BoxGeometry(0.02, 0.03, 0.18), chrome, M4(s * 0.95, 0.86, 0.3)]);                            // door handle
-    parts.push([new THREE.BoxGeometry(0.16, 0.1, 0.22), paint, M4(s * 1.0, 1.02, 0.8)]);                                // mirrors
-    parts.push([new THREE.BoxGeometry(0.03, 0.08, 0.18), 0x9ab0d0, M4(s * 1.04, 1.02, 0.78)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.5, 0.025), trim, M4(s * 0.955, 0.72, 0.98)]);                            // door shut lines
+    parts.push([new THREE.BoxGeometry(0.02, 0.48, 0.025), trim, M4(s * 0.955, 0.72, -0.72)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.03, 0.18), chrome, M4(s * 0.96, 0.86, 0.3)]);                            // door handle
+    parts.push([new THREE.BoxGeometry(0.14, 0.04, 0.06), dark, M4(s * 0.9, 1.0, 0.82)]);                                // mirror stalk
+    parts.push([new THREE.BoxGeometry(0.16, 0.1, 0.2), paint, M4(s * 1.0, 1.04, 0.8)]);                                 // mirrors
+    parts.push([new THREE.BoxGeometry(0.03, 0.07, 0.16), 0x9ab0d0, M4(s * 1.0, 1.04, 0.69)]);
     parts.push([new THREE.BoxGeometry(0.06, 0.22, 0.06), dark, M4(s * 0.55, 1.03, -2.0)]);                             // spoiler posts
     parts.push([new THREE.BoxGeometry(0.32, 0.1, 0.06), dark, M4(s * 0.55, 0.34, -2.33)]);                             // diffuser fins
   }
@@ -52,13 +80,14 @@ export function carGeometry({ police = false, taxi = false, wheels = true } = {}
   parts.push([new THREE.BoxGeometry(1.6, 0.14, 0.2), dark, M4(0, 0.4, -2.3)]);                                          // rear valance
   parts.push([new THREE.BoxGeometry(0.62, 0.18, 0.04), 0xf2f0e6, M4(0, 0.6, -2.37)]);                                   // plate
   parts.push([new THREE.BoxGeometry(1.7, 0.12, 4.3), 0x111018, M4(0, 0.3, 0)]);                                          // underbody
-  parts.push([new THREE.BoxGeometry(0.5, 0.025, 1.2), trim, M4(0, 0.905, 1.55, 0.06, 0, 0)]);                           // hood vent
+  parts.push([new THREE.BoxGeometry(0.5, 0.025, 1.2), trim, M4(0, 1.095, 1.5, 0.12, 0, 0)]);                           // hood vent
   if (wheels) for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     parts.push([new THREE.CylinderGeometry(0.37, 0.37, 0.28, 16), 0x16151c, M4(sx * 0.84, 0.37, sz * 1.42, 0, 0, Math.PI / 2)]);
     parts.push([new THREE.CylinderGeometry(0.24, 0.24, 0.29, 10), 0xb8bcc8, M4(sx * 0.845, 0.37, sz * 1.42, 0, 0, Math.PI / 2)]);
   }
-  if (police) parts.push([new THREE.BoxGeometry(1.2, 0.1, 0.3), 0x22222a, M4(0, 1.45, -0.2)]);
-  if (taxi) { parts.push([new THREE.BoxGeometry(0.7, 0.2, 0.25), 0xfff2c0, M4(0, 1.52, -0.2)]); for (const s of [-1, 1]) parts.push([new THREE.BoxGeometry(0.02, 0.08, 3.4), 0x1d1b26, M4(s * 0.955, 0.66, 0)]); }
+  if (police) parts.push([new THREE.BoxGeometry(1.2, 0.1, 0.3), 0x22222a, M4(0, 1.47, -0.2)]);
+  if (taxi) { parts.push([new THREE.BoxGeometry(0.7, 0.2, 0.25), 0xfff2c0, M4(0, 1.54, -0.2)]); for (const s of [-1, 1]) parts.push([new THREE.BoxGeometry(0.02, 0.08, 3.4), 0x1d1b26, M4(s * 0.955, 0.66, 0)]); }
+  if (glass) parts.push(...glassParts);
   const g = bakeColored(parts);
   if (police) {
     const p = g.attributes.position, c = g.attributes.color;
@@ -66,6 +95,7 @@ export function carGeometry({ police = false, taxi = false, wheels = true } = {}
   }
   return g;
 }
+export function carGlassGeometry() { const parts = [], gp = []; greenhouse(parts, gp, { prof: GLASS, w: 1.66, frame: TRIM, pillars: [], side: [[0.25, 1.17, 0.42], [-0.75, 1.13, 0.36]] }); parts.forEach(([g]) => g.dispose()); return bakeColored(gp); }
 // Lamps: slim swept headlights with a light bar, wraparound tail lights joined by a strip. Vertex colours carry the hue.
 export function carLightsGeometry() {
   const parts = [];
@@ -82,28 +112,32 @@ export function carLightsGeometry() {
 // ---------------------------------------------------------------- the Volt Roadster: a low open two-seater (4.5 m, forward = +z). White vertices take the paint.
 const ROAD_BODY = [[-2.2, 0.34], [-2.26, 0.5], [-2.24, 0.7], [-2.08, 0.81], [-1.6, 0.86], [-1.2, 0.9], [-0.98, 0.97], [-0.8, 0.88], [-0.45, 0.8], [0.1, 0.8], [0.5, 0.84], [0.85, 0.82], [1.3, 0.76], [1.75, 0.67], [2.1, 0.57], [2.25, 0.45], [2.22, 0.34]];
 export function roadsterGeometry({ wheels = false } = {}) {
-  const paint = 0xffffff, dark = 0x17161e, trim = 0x2a2834, chrome = 0xc8ccd8, leather = 0x24212d, parts = [];
+  const paint = 0xffffff, dark = DARK, chrome = CHROME, leather = 0x24212d, parts = [];
   parts.push([extrudeSide(ROAD_BODY, 1.92, 0.13), paint]);
   parts.push([new THREE.BoxGeometry(1.46, 0.03, 1.15), 0x121118, M4(0, 0.815, -0.18)]);                                   // cockpit floor
   parts.push([new THREE.BoxGeometry(1.7, 0.13, 0.5), paint, M4(0, 0.87, 0.66, 0.05, 0, 0)]);                              // cowl and dash
   parts.push([new THREE.BoxGeometry(1.52, 0.42, 0.035), 0x1a2236, M4(0, 1.03, 0.66, -0.75, 0, 0)]);                       // low raked windscreen
+  parts.push([new THREE.BoxGeometry(0.1, 0.36, 0.012), GLINT, M4(0.3, 1.04, 0.685, -0.75, 0, 0)]);                       // windscreen glints
+  parts.push([new THREE.BoxGeometry(0.04, 0.3, 0.012), GLINT, M4(0.46, 1.03, 0.685, -0.75, 0, 0)]);
+  parts.push([new THREE.BoxGeometry(1.56, 0.05, 0.05), dark, M4(0, 1.18, 0.53, -0.75, 0, 0)]);                           // screen top rail
   for (const s of [-1, 1]) {
     parts.push([new THREE.BoxGeometry(0.05, 0.46, 0.05), dark, M4(s * 0.77, 1.03, 0.66, -0.75, 0, 0)]);                  // A-pillars
     parts.push([new THREE.BoxGeometry(0.52, 0.1, 0.52), leather, M4(s * 0.4, 0.88, -0.12)]);                                // seats
     parts.push([new THREE.BoxGeometry(0.5, 0.52, 0.12), leather, M4(s * 0.4, 1.12, -0.42, -0.16, 0, 0)]);
     parts.push([new THREE.BoxGeometry(0.3, 0.16, 0.1), leather, M4(s * 0.4, 1.46, -0.5)]);
     parts.push([new THREE.SphereGeometry(0.3, 12, 8), paint, M4(s * 0.4, 0.98, -1.3, 0, 0, 0, 0.95, 0.62, 2.0)]);          // twin head fairings
-    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.965, 0.38, 1.33, 0, 0, Math.PI / 2)]);
-    parts.push([new THREE.CylinderGeometry(0.47, 0.47, 0.05, 20, 1, false, 0, Math.PI), dark, M4(s * 0.965, 0.38, -1.3, 0, 0, Math.PI / 2)]);
+    arch(parts, s * 0.965, 1.33, 0.37, paint, 0.035); arch(parts, s * 0.965, -1.3, 0.37, paint, 0.035);
     parts.push([new THREE.BoxGeometry(0.06, 0.11, 1.9), dark, M4(s * 0.95, 0.35, 0)]);                                     // side skirts
     parts.push([new THREE.BoxGeometry(0.03, 0.03, 1.5), chrome, M4(s * 0.965, 0.76, -0.05)]);                              // belt-line chrome
     parts.push([new THREE.BoxGeometry(0.05, 0.16, 0.7), 0x0e0d14, M4(s * 0.96, 0.55, -0.55)]);                             // side intakes
+    parts.push([new THREE.BoxGeometry(0.02, 0.42, 0.025), TRIM, M4(s * 0.965, 0.6, 0.62)]);                               // door shut line
+    parts.push([new THREE.BoxGeometry(0.06, 0.03, 0.12), dark, M4(s * 0.9, 0.9, 0.58)]);                                   // mirror stalk
     parts.push([new THREE.BoxGeometry(0.1, 0.07, 0.18), paint, M4(s * 0.96, 0.93, 0.62)]);                                 // mirrors
+    parts.push([new THREE.BoxGeometry(0.02, 0.05, 0.14), 0x9ab0d0, M4(s * 0.96, 0.93, 0.525)]);
     parts.push([new THREE.BoxGeometry(0.34, 0.1, 0.06), dark, M4(s * 0.55, 0.36, -2.2)]);                                  // diffuser fins
   }
   parts.push([new THREE.BoxGeometry(1.5, 0.07, 0.07), dark, M4(0, 1.5, -0.62)]);                                           // roll hoop bar
   parts.push([new THREE.BoxGeometry(0.06, 0.62, 0.06), dark, M4(-0.74, 1.2, -0.62)]); parts.push([new THREE.BoxGeometry(0.06, 0.62, 0.06), dark, M4(0.74, 1.2, -0.62)]);
-  parts.push([new THREE.TorusGeometry(0.17, 0.03, 6, 14), dark, M4(-0.4, 1.0, 0.28, -0.95, 0, 0)]);                       // steering wheel
   parts.push([new THREE.BoxGeometry(1.84, 0.07, 0.34), dark, M4(0, 0.34, 2.18)]);                                          // splitter
   parts.push([new THREE.BoxGeometry(0.9, 0.1, 0.05), 0x0e0d14, M4(0, 0.46, 2.27)]);                                        // low grille
   parts.push([new THREE.BoxGeometry(1.7, 0.1, 0.22), dark, M4(0, 0.4, -2.22)]);                                            // rear valance
@@ -122,6 +156,188 @@ export function roadsterLightsGeometry() {
     parts.push([new THREE.BoxGeometry(0.05, 0.1, 0.34), 0xff1830, M4(s * 0.93, 0.72, -2.1)]);
   }
   parts.push([new THREE.BoxGeometry(0.7, 0.03, 0.05), 0xff1830, M4(0, 0.74, -2.28)]);
+  return bakeColored(parts);
+}
+
+// ---------------------------------------------------------------- the Snack Van: a tall delivery van (5.2 m, 2.1 m wide, 2.5 m tall) with a donut painted on the sides
+const VAN_BODY = [[-2.5, 0.44], [-2.56, 0.62], [-2.56, 2.28], [-2.44, 2.4], [0.86, 2.4], [0.86, 1.42], [2.0, 1.42], [2.4, 1.3], [2.58, 1.06], [2.62, 0.72], [2.56, 0.44]];
+const VAN_GLASS = [[0.8, 1.38], [0.8, 2.3], [1.42, 2.3], [2.06, 1.38]];
+const VAN_ROOF = [[0.8, 2.22], [0.8, 2.46], [1.36, 2.46], [1.5, 2.22]];
+const VAN_GH = { prof: VAN_GLASS, w: 2.0, frame: 0xffffff, roof: VAN_ROOF, roofW: 2.08, roofC: 0xffffff, side: [[1.2, 1.9, 0.5]] };
+const ring = (r, n, wob = 0, f = 9) => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2, rr = r * (1 + wob * Math.sin(a * f)); return [Math.cos(a) * rr, Math.sin(a) * rr]; });
+function donut(parts, s, z0, y0, x0) {   // a flat cartoon donut on one flank: dough, wavy pink icing, hole, sprinkles
+  const at = (pts) => pts.map(([a, b]) => [z0 + a, y0 + b]);
+  parts.push([side(extrudeSide(at(ring(0.6, 28)), 0.03, 0), s * (x0 + 0.015)), 0xe0a25a]);
+  parts.push([side(extrudeSide(at(ring(0.5, 54, 0.07)), 0.03, 0), s * (x0 + 0.035)), 0xff7eb6]);
+  parts.push([side(extrudeSide(at(ring(0.24, 20)), 0.03, 0), s * (x0 + 0.055)), 0xe0a25a]);
+  parts.push([side(extrudeSide(at(ring(0.165, 18)), 0.03, 0), s * (x0 + 0.07)), 0xffffff]);
+  parts.push([side(extrudeSide(at(ring(0.12, 12).map(([a, b]) => [a + 0.27, b + 0.33])), 0.02, 0), s * (x0 + 0.06)), 0xffc4dd]);   // icing shine
+  const sp = [0xfff3a0, 0x6fd3ff, 0x3b3170, 0x9cff6b, 0xb07cff, 0xff4f5e];
+  for (let k = 0; k < 14; k++) { const a = k * 2.399 + 0.4, r = 0.32 + (k % 3) * 0.055; parts.push([new THREE.BoxGeometry(0.03, 0.035, 0.11), sp[k % sp.length], M4(s * (x0 + 0.06), y0 + Math.sin(a) * r, z0 + Math.cos(a) * r, a * 1.7, 0, 0)]); }
+}
+export function vanGeometry({ glass = false } = {}) {
+  const paint = 0xffffff, dark = DARK, plastic = 0x2a2a33, parts = [], gp = [];
+  parts.push([extrudeSide(VAN_BODY, 2.1, 0.1), paint]);
+  greenhouse(parts, gp, VAN_GH);
+  parts.push([new THREE.BoxGeometry(1.9, 0.16, 0.42), 0x15141c, M4(0, 1.56, 1.78, 0.2, 0, 0)]);                              // dashboard
+  parts.push([new THREE.BoxGeometry(2.0, 0.18, 4.9), 0x111018, M4(0, 0.44, 0)]);                                              // underbody
+  for (const s of [-1, 1]) {
+    arch(parts, s * 1.06, 1.75, 0.42, plastic, 0.06); arch(parts, s * 1.06, -1.55, 0.42, plastic, 0.06);
+    // sliding side door: the cut lines and the rail it runs back on
+    parts.push([new THREE.BoxGeometry(0.02, 1.7, 0.03), TRIM, M4(s * 1.056, 1.4, 0.72)]);
+    parts.push([new THREE.BoxGeometry(0.02, 1.7, 0.03), TRIM, M4(s * 1.056, 1.4, -0.72)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.03, 1.44), TRIM, M4(s * 1.056, 2.25, 0)]);
+    parts.push([new THREE.BoxGeometry(0.04, 0.05, 1.7), plastic, M4(s * 1.06, 2.28, -1.55)]);                              // rail
+    parts.push([new THREE.BoxGeometry(0.04, 0.05, 0.18), CHROME, M4(s * 1.065, 1.4, 0.58)]);                              // handle
+    parts.push([new THREE.BoxGeometry(0.02, 0.85, 0.03), TRIM, M4(s * 1.056, 0.97, 1.96)]);                                // cab door line
+    parts.push([new THREE.BoxGeometry(0.03, 0.04, 0.16), CHROME, M4(s * 1.06, 1.3, 1.1)]);
+    parts.push([new THREE.BoxGeometry(0.06, 0.2, 2.3), plastic, M4(s * 1.04, 0.56, -1.15)]);                               // rub strips
+    parts.push([new THREE.BoxGeometry(0.06, 0.2, 0.7), plastic, M4(s * 1.04, 0.56, 1.0)]);
+    donut(parts, s, -1.4, 1.42, 1.05);
+    // big van mirrors on arms
+    parts.push(strut([1.75, 1.5], [1.6, 1.62], s * 1.12, 0.05, 0.05, dark));
+    parts.push([new THREE.BoxGeometry(0.1, 0.36, 0.2), dark, M4(s * 1.22, 1.72, 1.62)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.3, 0.16), 0x9ab0d0, M4(s * 1.22, 1.72, 1.51)]);
+    // rear door windows, tail-lamp housings
+    gp.push([new THREE.BoxGeometry(0.78, 0.5, 0.03), GLASS_C, M4(s * 0.5, 1.9, -2.575)]);
+    gp.push([new THREE.BoxGeometry(0.06, 0.36, 0.01), GLINT, M4(s * 0.5 + 0.12, 1.9, -2.593, 0, 0, 0.6)]);
+    parts.push([new THREE.BoxGeometry(0.2, 0.62, 0.04), plastic, M4(s * 0.95, 1.25, -2.565)]);
+  }
+  parts.push([new THREE.BoxGeometry(0.03, 1.7, 0.02), TRIM, M4(0, 1.4, -2.565)]);                                            // rear doors split
+  parts.push([new THREE.BoxGeometry(0.16, 0.05, 0.04), CHROME, M4(0.12, 1.3, -2.575)]);
+  parts.push([new THREE.BoxGeometry(2.14, 0.26, 0.3), plastic, M4(0, 0.54, 2.58)]);                                           // front bumper
+  parts.push([new THREE.BoxGeometry(1.36, 0.34, 0.06), 0x1b1a22, M4(0, 0.98, 2.6)]);                                          // grille
+  for (const y of [0.9, 1.0, 1.1]) parts.push([new THREE.BoxGeometry(1.3, 0.025, 0.03), 0x5a5866, M4(0, y, 2.635)]);
+  parts.push([new THREE.BoxGeometry(2.14, 0.22, 0.26), plastic, M4(0, 0.52, -2.55)]);                                         // rear bumper
+  parts.push([new THREE.BoxGeometry(0.6, 0.16, 0.04), 0xf2f0e6, M4(0, 0.74, -2.575)]);                                        // plate
+  // roof vent and a pair of roof bars
+  parts.push([new THREE.BoxGeometry(0.72, 0.14, 0.62), 0xd9dde6, M4(0, 2.56, -0.9)]);
+  for (const z of [-1.1, -0.9, -0.7]) parts.push([new THREE.BoxGeometry(0.6, 0.03, 0.06), 0x3a3a46, M4(0, 2.635, z)]);
+  for (const x of [-0.82, 0.82]) parts.push([new THREE.BoxGeometry(0.06, 0.06, 3.0), plastic, M4(x, 2.53, -0.9)]);
+  if (glass) parts.push(...gp); else gp.forEach(([g]) => g.dispose());
+  return bakeColored(parts);
+}
+export function vanGlassGeometry() { const parts = [], gp = []; greenhouse(parts, gp, { ...VAN_GH, roof: null }); parts.forEach(([g]) => g.dispose());
+  for (const s of [-1, 1]) { gp.push([new THREE.BoxGeometry(0.78, 0.5, 0.03), GLASS_C, M4(s * 0.5, 1.9, -2.575)]); gp.push([new THREE.BoxGeometry(0.06, 0.36, 0.01), GLINT, M4(s * 0.5 + 0.12, 1.9, -2.593, 0, 0, 0.6)]); }
+  return bakeColored(gp); }
+export function vanLightsGeometry() {
+  const parts = [];
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.44, 0.22, 0.06), 0xfff4e0, M4(s * 0.74, 1.14, 2.6)]);
+    parts.push([new THREE.BoxGeometry(0.2, 0.08, 0.05), 0xffa030, M4(s * 0.86, 0.94, 2.61)]);
+    parts.push([new THREE.BoxGeometry(0.14, 0.5, 0.05), 0xff1830, M4(s * 0.95, 1.32, -2.59)]);
+    parts.push([new THREE.BoxGeometry(0.14, 0.08, 0.05), 0xffa030, M4(s * 0.95, 1.0, -2.59)]);
+    parts.push([new THREE.BoxGeometry(0.06, 0.05, 0.06), 0xffa030, M4(s * 0.92, 2.5, 0.84)]);                                // roof markers
+  }
+  parts.push([new THREE.BoxGeometry(0.5, 0.06, 0.04), 0xff1830, M4(0, 2.33, -2.58)]);                                         // high brake light
+  return bakeColored(parts);
+}
+
+// ---------------------------------------------------------------- the Sidewinder: a low wide wedge supercar (4.6 m, 2.0 m wide, 1.2 m tall), mid engine, rear wing
+const SUP_BODY = [[-2.25, 0.3], [-2.3, 0.52], [-2.26, 0.82], [-1.9, 0.88], [-1.3, 0.9], [-1.05, 0.74], [0.6, 0.7], [0.95, 0.74], [1.55, 0.62], [2.14, 0.46], [2.3, 0.37], [2.26, 0.3]];
+const SUP_GLASS = [[-1.45, 0.72], [-0.75, 1.06], [-0.25, 1.13], [0.2, 1.1], [1.28, 0.66]];
+const SUP_ROOF = [[-0.86, 0.99], [-0.72, 1.08], [-0.25, 1.16], [0.15, 1.13], [0.36, 1.05]];
+const SUP_GH = { prof: SUP_GLASS, w: 1.52, frame: 0x101015, roof: SUP_ROOF, roofW: 1.56, roofC: 0xffffff, side: [[0.35, 0.92, 0.36], [-0.6, 0.9, 0.3]] };
+const ACCENT = 0xc6ff3d;
+export function superGeometry({ glass = false } = {}) {
+  const paint = 0xffffff, dark = 0x101015, parts = [], gp = [];
+  parts.push([extrudeSide(SUP_BODY, 2.0, 0.1), paint]);
+  greenhouse(parts, gp, SUP_GH);
+  parts.push([new THREE.BoxGeometry(1.7, 0.12, 4.3), 0x0d0c12, M4(0, 0.3, 0)]);                                               // underbody
+  for (const s of [-1, 1]) {
+    arch(parts, s * 1.005, 1.38, 0.35, paint, 0.04); arch(parts, s * 1.005, -1.38, 0.37, paint, 0.045);
+    // scissor-style side intakes: a deep dark scoop with a paint blade across it
+    parts.push([side(extrudeSide([[-1.42, 0.42], [-0.42, 0.42], [-0.52, 0.66], [-1.02, 0.86], [-1.3, 0.84]], 0.04, 0), s * 1.012), dark]);
+    parts.push([side(extrudeSide([[-1.3, 0.48], [-0.62, 0.48], [-0.7, 0.62], [-1.08, 0.78], [-1.22, 0.76]], 0.04, 0), s * 1.02), 0x050508]);
+    parts.push(strut([-1.38, 0.5], [-0.5, 0.74], s * 1.04, 0.04, 0.07, paint));
+    parts.push([new THREE.BoxGeometry(0.02, 0.36, 0.025), TRIM, M4(s * 1.006, 0.56, 0.62)]);                                 // door line
+    parts.push([new THREE.BoxGeometry(0.06, 0.1, 2.5), dark, M4(s * 0.99, 0.34, 0)]);                                        // side skirts
+    parts.push(strut([0.7, 0.86], [0.92, 0.9], s * 0.86, 0.035, 0.035, dark));                                              // mirror stalk
+    parts.push([new THREE.BoxGeometry(0.16, 0.08, 0.17), paint, M4(s * 0.99, 0.92, 0.8)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.06, 0.13), 0x9ab0d0, M4(s * 0.99, 0.92, 0.71)]);
+    // racing stripes up the hood
+    parts.push(strut([0.95, 0.85], [1.55, 0.73], s * 0.2, 0.16, 0.02, ACCENT, 0)); parts.push(strut([1.55, 0.73], [2.14, 0.57], s * 0.2, 0.16, 0.02, ACCENT, 0));
+    parts.push([new THREE.BoxGeometry(0.06, 0.32, 0.12), dark, M4(s * 0.62, 1.08, -1.95)]);                                  // wing posts
+    parts.push([new THREE.BoxGeometry(0.05, 0.26, 0.5), paint, M4(s * 0.99, 1.22, -2.0)]);                                  // wing end plates
+    parts.push([new THREE.BoxGeometry(0.3, 0.12, 0.06), dark, M4(s * 0.5, 0.34, -2.28)]);                                   // diffuser fins
+    parts.push([new THREE.BoxGeometry(0.16, 0.16, 0.06), 0x2a2a33, M4(s * 0.3, 0.45, -2.29)]);                              // exhaust surrounds
+  }
+  for (let k = 0; k < 5; k++) parts.push([new THREE.BoxGeometry(1.1, 0.03, 0.07), dark, M4(0, 1.005, -1.45 - k * 0.11, 0.25, 0, 0)]);   // engine louvres
+  parts.push([new THREE.BoxGeometry(1.96, 0.05, 0.4), dark, M4(0, 1.26, -2.0, 0.1, 0, 0)]);                                   // rear wing
+  parts.push([new THREE.BoxGeometry(1.96, 0.02, 0.06), ACCENT, M4(0, 1.27, -2.2, 0.1, 0, 0)]);
+  parts.push([new THREE.BoxGeometry(1.94, 0.06, 0.3), dark, M4(0, 0.31, 2.22)]);                                              // splitter
+  parts.push([new THREE.BoxGeometry(1.3, 0.07, 0.05), 0x050508, M4(0, 0.42, 2.27)]);                                          // nose slit
+  for (const x of [-0.42, 0.42]) parts.push([new THREE.BoxGeometry(0.34, 0.02, 0.4), dark, M4(x, 0.705, 1.62, 0.2, 0, 0)]);   // hood vents
+  parts.push([new THREE.BoxGeometry(1.7, 0.16, 0.12), dark, M4(0, 0.4, -2.26)]);                                              // rear valance
+  if (glass) parts.push(...gp); else gp.forEach(([g]) => g.dispose());
+  return bakeColored(parts);
+}
+export function superGlassGeometry() { const parts = [], gp = []; greenhouse(parts, gp, { ...SUP_GH, roof: null }); parts.forEach(([g]) => g.dispose()); return bakeColored(gp); }
+export function superLightsGeometry() {
+  const parts = [];
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.42, 0.04, 0.12), 0xfff4e0, M4(s * 0.66, 0.6, 2.06, -0.35, s * -0.25, 0)]);          // slit headlights
+    parts.push([new THREE.BoxGeometry(0.18, 0.025, 0.06), 0xffe2b8, M4(s * 0.72, 0.52, 2.17, 0, s * -0.25, 0)]);
+    parts.push([new THREE.BoxGeometry(0.5, 0.06, 0.05), 0xff1830, M4(s * 0.68, 0.8, -2.29)]);
+  }
+  parts.push([new THREE.BoxGeometry(0.86, 0.025, 0.05), 0xff1830, M4(0, 0.8, -2.29)]);                                        // full-width bar
+  return bakeColored(parts);
+}
+
+// ---------------------------------------------------------------- the Dust Hauler: a chunky single-cab pickup (5.1 m, 2.05 m wide, 2.2 m tall) with a bed, roll bar and big tyres
+const PK_BODY = [[-2.48, 0.62], [-2.52, 0.78], [-2.5, 0.98], [-0.6, 0.98], [-0.6, 1.36], [0.95, 1.36], [2.3, 1.28], [2.48, 1.16], [2.54, 0.9], [2.5, 0.62]];
+const PK_GLASS = [[-0.56, 1.34], [-0.5, 1.96], [0.42, 1.96], [1.0, 1.34]];
+const PK_ROOF = [[-0.6, 1.9], [-0.6, 2.04], [0.44, 2.04], [0.56, 1.9]];
+const PK_GH = { prof: PK_GLASS, w: 1.86, frame: 0xffffff, roof: PK_ROOF, roofW: 1.94, roofC: 0xffffff, side: [[0.3, 1.68, 0.46]] };
+export function pickupGeometry({ glass = false } = {}) {
+  const paint = 0xffffff, dark = DARK, plastic = 0x26252e, sand = 0xe6b56a, parts = [], gp = [];
+  parts.push([extrudeSide(PK_BODY, 2.05, 0.1), paint]);
+  greenhouse(parts, gp, PK_GH);
+  parts.push([new THREE.BoxGeometry(1.8, 0.2, 4.8), 0x111018, M4(0, 0.62, 0)]);                                              // chassis
+  parts.push([new THREE.BoxGeometry(1.86, 0.04, 1.78), 0x3b3a45, M4(0, 1.1, -1.56)]);                                         // bed liner
+  parts.push([new THREE.BoxGeometry(2.05, 0.46, 0.08), paint, M4(0, 1.21, -2.46)]);                                            // tailgate
+  parts.push([new THREE.BoxGeometry(1.5, 0.025, 0.02), TRIM, M4(0, 1.32, -2.505)]); parts.push([new THREE.BoxGeometry(0.24, 0.06, 0.03), dark, M4(0, 1.3, -2.51)]);
+  parts.push([new THREE.BoxGeometry(0.7, 0.38, 0.56), 0xa5713f, M4(0.42, 1.31, -1.85)]);                                       // a crate in the bed
+  for (const y of [1.2, 1.4]) parts.push([new THREE.BoxGeometry(0.72, 0.04, 0.58), 0x7d5530, M4(0.42, y, -1.85)]);
+  parts.push([new THREE.BoxGeometry(1.1, 0.3, 0.06), 0x1d1c24, M4(0, 1.3, -0.72)]);                                            // rear cab window frame
+  // roll bar behind the cab
+  for (const s of [-1, 1]) { parts.push([new THREE.BoxGeometry(0.08, 0.8, 0.08), dark, M4(s * 0.86, 1.8, -0.86)]); parts.push(strut([-0.86, 2.14], [-1.5, 1.44], s * 0.86, 0.07, 0.07, dark)); parts.push([new THREE.BoxGeometry(0.24, 0.17, 0.12), dark, M4(s * 0.42, 2.27, -0.86)]); }
+  parts.push([new THREE.BoxGeometry(1.8, 0.08, 0.08), dark, M4(0, 2.18, -0.86)]);
+  for (const s of [-1, 1]) {
+    arch(parts, s * 1.03, 1.62, 0.5, plastic, 0.09); arch(parts, s * 1.03, -1.6, 0.5, plastic, 0.09);
+    parts.push([new THREE.BoxGeometry(0.09, 0.46, 1.86), paint, M4(s * 0.98, 1.21, -1.54)]);                                  // bed sides
+    parts.push([new THREE.BoxGeometry(0.13, 0.04, 1.9), plastic, M4(s * 0.98, 1.46, -1.54)]);                                 // bed rails
+    parts.push([new THREE.BoxGeometry(0.02, 0.62, 0.03), TRIM, M4(s * 1.031, 1.02, 0.97)]);                                   // door lines
+    parts.push([new THREE.BoxGeometry(0.02, 0.62, 0.03), TRIM, M4(s * 1.031, 1.02, -0.56)]);
+    parts.push([new THREE.BoxGeometry(0.03, 0.04, 0.18), CHROME, M4(s * 1.036, 1.22, -0.36)]);
+    parts.push(strut([-2.2, 0.98], [0.75, 1.12], s * 1.032, 0.012, 0.07, sand)); parts.push(strut([-2.2, 0.9], [0.75, 1.04], s * 1.032, 0.012, 0.035, sand));   // dust stripes
+    parts.push([new THREE.BoxGeometry(0.2, 0.06, 1.3), plastic, M4(s * 1.1, 0.62, 0.05)]);                                   // side steps
+    parts.push(strut([1.05, 1.42], [0.9, 1.56], s * 0.98, 0.05, 0.05, dark));                                                // mirrors
+    parts.push([new THREE.BoxGeometry(0.1, 0.24, 0.18), dark, M4(s * 1.06, 1.6, 0.86)]);
+    parts.push([new THREE.BoxGeometry(0.02, 0.2, 0.14), 0x9ab0d0, M4(s * 1.06, 1.6, 0.765)]);
+    parts.push([new THREE.BoxGeometry(0.07, 0.5, 0.07), dark, M4(s * 0.46, 1.0, 2.66)]);                                     // bull bar uprights
+  }
+  parts.push([new THREE.BoxGeometry(1.06, 0.07, 0.07), dark, M4(0, 1.22, 2.66)]); parts.push([new THREE.BoxGeometry(1.06, 0.07, 0.07), dark, M4(0, 0.82, 2.66)]);
+  parts.push([new THREE.BoxGeometry(1.52, 0.4, 0.05), 0x1b1a22, M4(0, 1.04, 2.535)]);                                         // grille
+  for (const y of [0.94, 1.04, 1.14]) parts.push([new THREE.BoxGeometry(1.44, 0.035, 0.03), CHROME, M4(0, y, 2.565)]);
+  parts.push([new THREE.BoxGeometry(2.12, 0.26, 0.32), plastic, M4(0, 0.7, 2.5)]);                                            // bumpers
+  parts.push([new THREE.BoxGeometry(2.12, 0.22, 0.26), plastic, M4(0, 0.66, -2.5)]);
+  parts.push([new THREE.BoxGeometry(0.1, 0.1, 0.24), 0x9a9aa8, M4(0, 0.6, -2.7)]);                                            // tow hitch
+  parts.push([new THREE.BoxGeometry(0.56, 0.16, 0.04), 0xf2f0e6, M4(0, 0.86, -2.47)]);                                        // plate (on the bumper step)
+  parts.push([new THREE.BoxGeometry(0.6, 0.06, 1.0), TRIM, M4(0, 1.44, 1.7, 0.06, 0, 0)]);                                    // hood scoop
+  if (glass) parts.push(...gp); else gp.forEach(([g]) => g.dispose());
+  return bakeColored(parts);
+}
+export function pickupGlassGeometry() { const parts = [], gp = []; greenhouse(parts, gp, { ...PK_GH, roof: null }); parts.forEach(([g]) => g.dispose()); return bakeColored(gp); }
+export function pickupLightsGeometry() {
+  const parts = [];
+  for (const s of [-1, 1]) {
+    parts.push([new THREE.BoxGeometry(0.4, 0.2, 0.06), 0xfff4e0, M4(s * 0.8, 1.14, 2.52)]);
+    parts.push([new THREE.BoxGeometry(0.16, 0.08, 0.05), 0xffa030, M4(s * 0.8, 0.94, 2.54)]);
+    parts.push([new THREE.BoxGeometry(0.1, 0.42, 0.05), 0xff1830, M4(s * 0.96, 1.18, -2.52)]);
+    parts.push([new THREE.BoxGeometry(0.18, 0.12, 0.04), 0xfff4e0, M4(s * 0.42, 2.27, -0.79)]);                              // roll-bar lamps
+  }
+  parts.push([new THREE.BoxGeometry(0.4, 0.05, 0.04), 0xff1830, M4(0, 2.08, -0.66)]);                                         // cab brake light
   return bakeColored(parts);
 }
 // ---------------------------------------------------------------- the Star Hopper: a stainless-steel launch vehicle (37 m tall, 9 m wide, upright, base at y = 0).
